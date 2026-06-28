@@ -1,0 +1,196 @@
+{
+  "type": "dir",
+  "name": "AIAC_SITE",
+  "path": "",
+  "children": [
+    {
+      "type": "dir",
+      "name": "AIAC_BIODIVERSITE",
+      "path": "AIAC_BIODIVERSITE",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_BIODIVERSITE/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_DEPLACES_REFUGIES",
+      "path": "AIAC_DEPLACES_REFUGIES",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_DEPLACES_REFUGIES/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_DEVLOCAL",
+      "path": "AIAC_DEVLOCAL",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_DEVLOCAL/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_EDUCATION",
+      "path": "AIAC_EDUCATION",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_EDUCATION/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_ENVIRONNEMENT",
+      "path": "AIAC_ENVIRONNEMENT",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_ENVIRONNEMENT/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_HUMANITAIRE",
+      "path": "AIAC_HUMANITAIRE",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_HUMANITAIRE/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_PDH",
+      "path": "AIAC_PDH",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_PDH/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_PFF",
+      "path": "AIAC_PFF",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_PFF/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_PGC_Catastrophes",
+      "path": "AIAC_PGC_Catastrophes",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_PGC_Catastrophes/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_SANTE_TRAUMA",
+      "path": "AIAC_SANTE_TRAUMA",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_SANTE_TRAUMA/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "AIAC_SECURITE_SURETE",
+      "path": "AIAC_SECURITE_SURETE",
+      "children": [
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "AIAC_SECURITE_SURETE/index.html"
+        }
+      ]
+    },
+    {
+      "type": "dir",
+      "name": "autres",
+      "path": "autres",
+      "children": [
+        {
+          "type": "file",
+          "name": "agenda.html",
+          "path": "autres/agenda.html"
+        },
+        {
+          "type": "file",
+          "name": "galerie.html",
+          "path": "autres/galerie.html"
+        },
+        {
+          "type": "file",
+          "name": "index.html",
+          "path": "autres/index.html"
+        },
+        {
+          "type": "file",
+          "name": "livre-dor.html",
+          "path": "autres/livre-dor.html"
+        },
+        {
+          "type": "file",
+          "name": "projets.html",
+          "path": "autres/projets.html"
+        },
+        {
+          "type": "file",
+          "name": "rapports.html",
+          "path": "autres/rapports.html"
+        },
+        {
+          "type": "file",
+          "name": "videos.html",
+          "path": "autres/videos.html"
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "explorer.html",
+      "path": "explorer.html"
+    },
+    {
+      "type": "file",
+      "name": "index.html",
+      "path": "index.html"
+    },
+    {
+      "type": "file",
+      "name": "README.txt",
+      "path": "README.txt"
+    }
+  ]
+}

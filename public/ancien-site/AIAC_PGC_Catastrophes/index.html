@@ -1,0 +1,1055 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <title>AIAC – Prévention & Gestion des Catastrophes | Yaoundé</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Programme AIAC – Prévention et Gestion des Catastrophes à Yaoundé : prévention des inondations, glissements de terrain, formations, audits de risques, accompagnement communautaire." />
+  <meta name="theme-color" content="#0b1020"/>
+
+  <style>
+    :root {
+      --bg-dark: #0b1020;
+      --bg-light: #f5f7fb;
+      --primary: #38bdf8;
+      --primary-soft: rgba(56, 189, 248, 0.12);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --danger: #f97373;
+      --radius-lg: 18px;
+      --radius-xl: 24px;
+      --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.25);
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text-main);
+      background: #020617;
+    }
+    a { color: inherit; text-decoration: none; }
+    img { max-width: 100%; display: block; }
+
+    /* Layout global */
+    .page {
+      min-height: 100vh;
+      background: radial-gradient(circle at top left, #1e293b 0, #020617 45%, #000 100%);
+      color: #e5e7eb;
+    }
+
+    header.hero {
+      position: relative;
+      padding: 1.2rem 1.5rem 3rem;
+    }
+    .hero-inner { max-width: 1120px; margin: 0 auto; }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 2rem;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+    .nav-left { display: flex; align-items: center; gap: 0.75rem; }
+    .logo-box {
+      width: 52px; height: 52px; border-radius: 999px;
+      background: radial-gradient(circle at 30% 0, #f9fafb, #e5e7eb);
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 10px 30px rgba(15, 23, 42, 0.6);
+      overflow: hidden;
+    }
+    .logo-box img { width: 100%; height: 100%; object-fit: contain; }
+    .nav-brand { display: flex; flex-direction: column; line-height: 1.1; }
+    .nav-brand .org {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #94a3b8;
+    }
+    .nav-brand .sub {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #f9fafb;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 1.1rem;
+      font-size: 0.9rem;
+      color: #cbd5f5;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .nav-links a { opacity: 0.86; }
+    .nav-links a:hover { opacity: 1; }
+
+    .nav-cta {
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.6);
+      background: linear-gradient(135deg, rgba(15,23,42,0.6), rgba(15,23,42,0.2));
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .nav-cta-dot {
+      width: 8px; height: 8px; border-radius: 999px;
+      background: #22c55e;
+      box-shadow: 0 0 12px rgba(34,197,94,0.9);
+    }
+
+    /* Hero content */
+    .hero-main {
+      display: grid;
+      grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+      gap: 2.5rem;
+      align-items: center;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.3rem 0.8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148, 163, 184, 0.5);
+      background: linear-gradient(90deg, rgba(15,23,42,0.8), rgba(15,23,42,0.2));
+      font-size: 0.75rem;
+      color: #e5e7eb;
+      margin-bottom: 1rem;
+    }
+    .hero-badge span.tag {
+      padding: 0.1rem 0.45rem;
+      border-radius: 999px;
+      background: rgba(56,189,248,0.15);
+      color: var(--primary);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .hero-title {
+      font-size: clamp(1.9rem, 3vw + 1rem, 2.7rem);
+      line-height: 1.1;
+      font-weight: 800;
+      margin: 0 0 0.75rem;
+    }
+    .hero-title span.highlight { color: var(--primary); }
+
+    .hero-subtitle {
+      font-size: 0.98rem;
+      max-width: 560px;
+      color: #cbd5f5;
+      margin-bottom: 1.5rem;
+    }
+
+    .hero-stats {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      font-size: 0.8rem;
+      color: #e5e7eb;
+      margin-bottom: 1.8rem;
+    }
+    .hero-stat { display: flex; flex-direction: column; gap: 0.2rem; }
+    .hero-stat strong { font-size: 1rem; color: #f9fafb; }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .btn {
+      border-radius: 999px;
+      padding: 0.7rem 1.4rem;
+      font-size: 0.9rem;
+      border: none;
+      cursor: pointer;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease;
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #0ea5e9, #38bdf8);
+      color: #0b1120;
+      box-shadow: 0 14px 40px rgba(56,189,248,0.45);
+    }
+    .btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 20px 50px rgba(56,189,248,0.7);
+    }
+    .btn-ghost {
+      background: rgba(15,23,42,0.6);
+      color: #e5e7eb;
+      border: 1px solid rgba(148,163,184,0.6);
+    }
+    .btn-ghost:hover {
+      background: rgba(15,23,42,0.9);
+      transform: translateY(-1px);
+    }
+    .hero-note { font-size: 0.78rem; color: #94a3b8; }
+
+    /* Hero side card */
+    .hero-card {
+      background: radial-gradient(circle at top, #0f172a, #020617);
+      border-radius: var(--radius-xl);
+      padding: 1.5rem 1.5rem 1.1rem;
+      box-shadow: var(--shadow-soft);
+      border: 1px solid rgba(148,163,184,0.4);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero-card::before {
+      content: "";
+      position: absolute;
+      inset: -40%;
+      background: radial-gradient(circle at 10% 0, rgba(56,189,248,0.08), transparent 60%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .hero-card-inner {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.9rem;
+    }
+    .hero-chip {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.11em;
+      color: #9ca3af;
+    }
+    .hero-card-title {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #e5e7eb;
+    }
+    .hero-card-list {
+      font-size: 0.8rem;
+      color: #cbd5f5;
+      padding-left: 1.1rem;
+      margin: 0.3rem 0 0.6rem;
+    }
+    .hero-card-badgeRow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      font-size: 0.7rem;
+    }
+    .badge {
+      padding: 0.15rem 0.55rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      background: rgba(15,23,42,0.7);
+    }
+    .hero-card-footer {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.75rem;
+      align-items: center;
+      border-top: 1px dashed rgba(148,163,184,0.6);
+      padding-top: 0.75rem;
+      margin-top: 0.6rem;
+      font-size: 0.78rem;
+      color: #9ca3af;
+    }
+    .hero-card-footer strong { color: #e5e7eb; }
+
+    /* Main content */
+    main { background: #020617; padding: 0 1.5rem 2.5rem; }
+    .main-inner {
+      max-width: 1120px;
+      margin: 0 auto;
+      background: linear-gradient(180deg, rgba(15,23,42,0.9), #020617);
+      border-radius: 32px 32px 0 0;
+      padding: 2.2rem 1.8rem 2.5rem;
+      margin-top: -1.6rem;
+      box-shadow: 0 -4px 0 rgba(148,163,184,0.2);
+      border: 1px solid rgba(15,23,42,0.7);
+    }
+    section { margin-bottom: 2.5rem; }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 1rem;
+      margin-bottom: 1.3rem;
+      flex-wrap: wrap;
+    }
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #f9fafb;
+      margin: 0.2rem 0 0;
+    }
+    .section-kicker {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--primary);
+    }
+    .section-sub {
+      font-size: 0.85rem;
+      color: #9ca3af;
+      max-width: 520px;
+    }
+    .pill {
+      font-size: 0.72rem;
+      padding: 0.25rem 0.6rem;
+      border-radius: 999px;
+      border: 1px solid rgba(148,163,184,0.6);
+      color: #cbd5f5;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: minmax(0,1.1fr) minmax(0,1fr);
+      gap: 1.8rem;
+    }
+    .card {
+      background: radial-gradient(circle at top left, rgba(15,23,42,0.9), rgba(2,6,23,0.96));
+      border-radius: var(--radius-lg);
+      padding: 1.3rem 1.4rem;
+      border: 1px solid rgba(30,64,175,0.7);
+      box-shadow: 0 16px 40px rgba(15,23,42,0.6);
+    }
+    .card h3 {
+      margin: 0 0 0.8rem;
+      font-size: 0.98rem;
+      color: #e5e7eb;
+    }
+    .card p {
+      margin: 0 0 0.6rem;
+      font-size: 0.85rem;
+      color: #cbd5f5;
+      line-height: 1.55;
+    }
+    .card ul {
+      margin: 0.4rem 0 0.4rem 1rem;
+      padding: 0;
+      font-size: 0.82rem;
+      color: #cbd5f5;
+      line-height: 1.55;
+    }
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-top: 0.3rem;
+    }
+    .tag-row span {
+      font-size: 0.72rem;
+      padding: 0.18rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(15,23,42,0.7);
+      border: 1px solid rgba(148,163,184,0.5);
+      color: #e5e7eb;
+    }
+
+    /* Axes grid */
+    .axes-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.1rem;
+    }
+    .axis-card {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.9), rgba(15,23,42,0.98));
+      border-radius: var(--radius-lg);
+      padding: 1rem 1rem;
+      border: 1px solid rgba(51,65,85,0.9);
+      font-size: 0.8rem;
+      color: #e5e7eb;
+    }
+    .axis-title {
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      color: #e5e7eb;
+    }
+    .axis-tag {
+      font-size: 0.7rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 0.3rem;
+      font-weight: 800;
+    }
+    .axis-card ul {
+      margin: 0.3rem 0 0 1rem;
+      padding: 0;
+      line-height: 1.55;
+    }
+
+    /* Services / monétisation */
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1.2rem;
+    }
+    .service-card {
+      background: radial-gradient(circle at top left, rgba(34,197,94,0.07), rgba(15,23,42,0.98));
+      border-radius: var(--radius-lg);
+      padding: 1.1rem 1.1rem;
+      border: 1px solid rgba(34,197,94,0.45);
+      font-size: 0.83rem;
+      color: #e5e7eb;
+    }
+    .service-card h3 {
+      margin: 0 0 0.4rem;
+      font-size: 0.92rem;
+      color: #bbf7d0;
+    }
+    .service-card small {
+      color: #a7f3d0;
+      font-size: 0.75rem;
+    }
+    .service-card ul {
+      margin: 0.4rem 0 0.4rem 1.1rem;
+      padding: 0;
+      line-height: 1.55;
+    }
+    .badge-paid {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.12rem 0.55rem;
+      border-radius: 999px;
+      background: rgba(21,128,61,0.3);
+      color: #bbf7d0;
+      font-size: 0.7rem;
+      margin-bottom: 0.35rem;
+      font-weight: 800;
+    }
+
+    /* Contact */
+    .contact-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+      gap: 1.6rem;
+    }
+    .contact-card {
+      background: radial-gradient(circle at top, rgba(15,23,42,0.85), rgba(15,23,42,0.98));
+      border-radius: var(--radius-lg);
+      padding: 1.2rem 1.2rem;
+      border: 1px solid rgba(30,64,175,0.7);
+      color: #e5e7eb;
+      font-size: 0.85rem;
+    }
+    form label {
+      font-size: 0.78rem;
+      color: #cbd5f5;
+      display: block;
+      margin-bottom: 0.25rem;
+      font-weight: 700;
+    }
+    form input,
+    form textarea {
+      width: 100%;
+      padding: 0.6rem 0.7rem;
+      border-radius: 10px;
+      border: 1px solid rgba(148,163,184,0.8);
+      background: rgba(15,23,42,0.9);
+      color: #e5e7eb;
+      font-size: 0.85rem;
+      margin-bottom: 0.65rem;
+      outline: none;
+    }
+    form input:focus,
+    form textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 1px rgba(56,189,248,0.4);
+    }
+    form textarea { min-height: 110px; resize: vertical; }
+
+    .contact-note {
+      font-size: 0.75rem;
+      color: #94a3b8;
+      margin-top: 0.4rem;
+      line-height: 1.45;
+    }
+    .contact-info p { margin: 0 0 0.4rem; }
+    .contact-block { margin-bottom: 1rem; }
+    .contact-list {
+      list-style: none;
+      padding: 0;
+      margin: 0.3rem 0 0;
+      font-size: 0.82rem;
+      line-height: 1.55;
+    }
+    .contact-list li { margin-bottom: 0.25rem; }
+    .contact-list a { color: var(--primary); }
+
+    .whatsapp-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      background: #16a34a;
+      color: #e5fdf3;
+      font-size: 0.8rem;
+      font-weight: 800;
+      text-decoration: none;
+      box-shadow: 0 12px 30px rgba(22,163,74,0.6);
+      margin-top: 0.4rem;
+    }
+    .whatsapp-btn span { font-size: 1rem; }
+
+    /* Footer */
+    footer {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 1.2rem 1.8rem 2rem;
+      font-size: 0.78rem;
+      color: #94a3b8;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      gap: 0.75rem;
+      border-top: 1px solid rgba(30,64,175,0.8);
+    }
+    footer strong { color: #e5e7eb; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .hero-main { grid-template-columns: minmax(0, 1fr); }
+      .hero-card { order: -1; }
+      .main-inner { padding: 1.6rem 1.2rem 2.2rem; }
+      .contact-layout,
+      .grid-2 { grid-template-columns: minmax(0, 1fr); }
+      header.hero { padding: 1rem 1rem 3rem; }
+      main { padding: 0 1rem 2rem; }
+      footer { padding: 1rem 1rem 2rem; }
+    }
+    @media (max-width: 640px) {
+      .nav-links { justify-content: flex-start; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="page">
+
+  <!-- HERO / HEADER -->
+  <header class="hero" id="top">
+    <div class="hero-inner">
+
+      <div class="nav">
+        <div class="nav-left">
+          <div class="logo-box">
+            <!-- Logo AIAC intégré (aucun fichier externe requis) -->
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAHgAAABRCAIAAACWpfV7AAA5T0lEQVR42u29d5wc1ZUvfs69VdW5Z3p6ck7SaBRHAUYSQkIgkEFGIsp4bWyzay+2eRh2bbx+7K6NbRavbbG7D2z2rcFrHITBmCCCCAIEQhGU0yhMzrlzd6V7z/ujekYCRqTF+/z5vV99Rvr0VNdU3T733BO+53tuIxHBJ3oQgHNHRgB41lk469f/9w78xAQ9KVYiAAmAgPj/tGjfeSifnB4DAEoAQEAABAnAAAiA/f8K/QkKGh0pIgERIHIAIJAAgCgB3q3almW1trY2NjYCQCaTeeuttwBgxowZ8Xh8eHgYAKqrq4eHhxsbG6WU/f399fX1bW1t7e3tpaWlgUCgt7eXiEpLS6urq4UQR44cSaVSJSUldXV17e3tjLFkMllRUdHW1jZ//vxoNBqJROLxeCaTISKv1yul1HVd07SKior29nYAmDVrlpSyra2tqalJ1/XBwcFAINDa2goAhYWFtm3n5OSUlJS0tbUBwODgIOccAAKBgKZp06ZNGxgYOHr0aGlp6axZsw4cOFBXV+fxeDo7O2traxljAICI/K677voE7TOCQMYAERAwazoIszp+Rta7du264YYbPvvZz0opv/KVr+Tk5GiaFhkff+iXv2xra6uurpZS3njjjWNjY/Pnz3/00UfT6fSGDRuamppOnjy5a9euRx55pLm5OZlMVlVVEdH111+fn5+/adOm3t7el156qbe39+GHH161atWyZctKSkoCgcCzzz7r8Xjuv//+np6ecDh8xx13OHPc29t75513lpSU/PjHP16xYsUXvvCFK6+8sqWl5dixYyMjI3fffffy5ct1Xf/FL35x3333fe5zn3vooYc0TWtpabnnnnsWLlz45JNP7t+/v76+/tZbb21qanr44YeTyeQ///M/79mz51Of+tQDDzywfPlyxhgigrOuz2EHzvXruUyHBABCZevB1h/+5wv3P/764HgCECbUmc6+z4EDB+bOnfvMM89se/PNwaHBL3/5y6suWTWvqckWQs9kiKi2tnblypVbt27dsmWLx+P52c9+duWVV65evfpLX/pSXl6eruvJZHLmzJmOsjDGVq1adeuttz7wwANXXXVVTU2NbduIuHbt2oceeujIkSOhUOjyyy8vLS1tbGxcu3atECIWixUUFBQW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" alt="Logo AIAC" />
+          </div>
+          <div class="nav-brand">
+            <span class="org">AGENCE D’INTERVENTION ET D’ACTION COMMUNAUTAIRE</span>
+            <span class="sub">Organe subsidiaire : Prévention & Gestion des Catastrophes</span>
+          </div>
+        </div>
+
+        <div class="nav-links">
+          <a href="../index.html">Accueil</a>
+          <a href="../explorer.html">Explorateur</a>
+          <a href="#about">Présentation</a>
+          <a href="#program">Programme</a>
+          <a href="#services">Services</a>
+          <a href="#support">Soutenir</a>
+          <a href="#contact" class="nav-cta">
+            <span class="nav-cta-dot"></span>
+            Nous contacter
+          </a>
+        </div>
+      </div>
+
+      <div class="hero-main">
+        <div class="hero-text">
+          <div class="hero-badge">
+            <span class="tag">Yaoundé – Cameroun</span>
+            <span>Prévention des risques & résilience communautaire</span>
+          </div>
+          <h1 class="hero-title">
+            Construire des <span class="highlight">quartiers résilients</span>
+            face aux inondations, glissements de terrain et crises.
+          </h1>
+          <p class="hero-subtitle">
+            L’AIAC – Prévention et Gestion des Catastrophes accompagne les communautés de Yaoundé
+            pour anticiper les risques, sauver des vies, protéger les plus vulnérables
+            et renforcer la résilience locale.
+          </p>
+
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <span>Axes d’intervention</span>
+              <strong>8 domaines clés</strong>
+              <span>De la sensibilisation communautaire aux premiers secours.</span>
+            </div>
+            <div class="hero-stat">
+              <span>Zone d’action</span>
+              <strong>Quartiers à risque</strong>
+              <span>Bas-fonds, pentes instables, zones inondables de Yaoundé.</span>
+            </div>
+            <div class="hero-stat">
+              <span>Mode d’intervention</span>
+              <strong>Communautaire & participatif</strong>
+              <span>En lien avec autorités, ONG et services techniques.</span>
+            </div>
+          </div>
+
+          <div class="hero-actions">
+            <a href="#contact" class="btn btn-primary">
+              Nous écrire maintenant <span>✉️</span>
+            </a>
+            <a href="#services" class="btn btn-ghost">
+              Devenir partenaire / financer un projet
+            </a>
+            <a class="btn btn-ghost" href="https://wa.me/237671310883?text=Bonjour%20AIAC,%20je%20souhaite%20des%20informations%20sur%20le%20programme%20Pr%C3%A9vention%20%26%20Gestion%20des%20Catastrophes%20%C3%A0%20Yaound%C3%A9." target="_blank" rel="noopener">
+              WhatsApp <span>💬</span>
+            </a>
+          </div>
+
+          <div class="hero-note">
+            <strong>Organisation à but non lucratif</strong> — Les services sur devis servent uniquement à
+            soutenir et pérenniser nos actions communautaires.
+            <br/>
+            Contact direct PCA : <strong>pca@aiac-cm.org</strong> – WhatsApp :
+            <strong>+237 671 310 883</strong>
+          </div>
+        </div>
+
+        <aside class="hero-card" aria-label="Résumé du programme">
+          <div class="hero-card-inner">
+            <div class="hero-chip">Programme AIAC – Yaoundé</div>
+            <div class="hero-card-title">
+              Prévenir les catastrophes, protéger les vies, accompagner la reconstruction.
+            </div>
+            <ul class="hero-card-list">
+              <li>Causeries communautaires dans les quartiers à risque ;</li>
+              <li>Clubs “Sécurité & Environnement” en milieu scolaire ;</li>
+              <li>Comités de veille & plans d’urgence familiaux ;</li>
+              <li>Curage de drains, gestion des déchets, stabilisation de pentes ;</li>
+              <li>Formations en premiers secours & soutien psychosocial.</li>
+            </ul>
+            <div class="hero-card-badgeRow">
+              <span class="badge">Inondations & glissements</span>
+              <span class="badge">WASH & épidémies</span>
+              <span class="badge">Plaidoyer & coordination</span>
+            </div>
+            <div class="hero-card-footer">
+              <span><strong>Point focal AIAC–Yaoundé</strong><br/>En lien direct avec le PCA & la PCE</span>
+              <span>Interventions sur demande des communautés, institutions, ONG et entreprises.</span>
+            </div>
+          </div>
+        </aside>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="main-inner">
+
+      <!-- SECTION : Présentation / Contexte -->
+      <section id="about">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Présentation</div>
+            <h2 class="section-title">Pourquoi AIAC – Prévention & Gestion des Catastrophes à Yaoundé ?</h2>
+          </div>
+          <div class="section-sub">
+            Yaoundé fait face à des inondations récurrentes, glissements de terrain, effondrements
+            d’habitations et risques épidémiques. Ces dangers sont amplifiés par la pression démographique,
+            l’occupation des zones à risque et le manque de préparation des communautés.
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Contexte & justification</h3>
+            <p>
+              L’Agence d’Intervention et d’Action Communautaire (AIAC), à travers son organe subsidiaire
+              « Prévention & Gestion des Catastrophes », met en place à Yaoundé un programme ciblé
+              pour renforcer la préparation, la prévention et la résilience des populations.
+            </p>
+            <p>
+              Notre approche est communautaire, participative et sensible aux vulnérabilités
+              (enfants, femmes, personnes handicapées, ménages précaires).
+            </p>
+            <div class="tag-row">
+              <span>Approche communautaire</span>
+              <span>Résilience locale</span>
+              <span>Protection & inclusion</span>
+              <span>Do no harm</span>
+            </div>
+          </div>
+
+          <div class="card">
+            <h3>Objectifs du programme</h3>
+            <p><strong>Objectif général :</strong><br/>
+              Renforcer la préparation, la prévention et la résilience des communautés de Yaoundé
+              face aux catastrophes naturelles et aux risques liés à l’environnement et au cadre de vie.
+            </p>
+            <ul>
+              <li>Sensibiliser les populations des quartiers à risque aux dangers et bons réflexes ;</li>
+              <li>Mettre en place des comités de veille et des plans d’urgence familiaux ;</li>
+              <li>Impliquer les écoles et les jeunes comme sentinelles ;</li>
+              <li>Appuyer des actions concrètes de réduction des risques ;</li>
+              <li>Porter la voix des communautés dans le plaidoyer auprès des autorités et partenaires.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION : Programme / Axes -->
+      <section id="program">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Programme</div>
+            <h2 class="section-title">Axes d’intervention à Yaoundé</h2>
+          </div>
+          <div class="pill">Programme modulable selon les quartiers à risque</div>
+        </div>
+
+        <div class="axes-grid">
+          <div class="axis-card">
+            <div class="axis-tag">Axe 1</div>
+            <div class="axis-title">Sensibilisation & éducation communautaire</div>
+            <ul>
+              <li>Causeries sur les risques (inondations, glissements, incendies) ;</li>
+              <li>Campagnes saison des pluies (WhatsApp, affiches, séances d’info) ;</li>
+              <li>Supports pédagogiques simples et adaptés aux communautés.</li>
+            </ul>
+          </div>
+
+          <div class="axis-card">
+            <div class="axis-tag">Axe 2</div>
+            <div class="axis-title">Écoles & jeunes sentinelles</div>
+            <ul>
+              <li>Clubs “Sécurité & Environnement” dans les écoles et lycées ;</li>
+              <li>Sessions sur les risques et leurs conséquences ;</li>
+              <li>Exercices d’évacuation et simulations pédagogiques.</li>
+            </ul>
+          </div>
+
+          <div class="axis-card">
+            <div class="axis-tag">Axe 3</div>
+            <div class="axis-title">Plans d’urgence familiaux & comités de veille</div>
+            <ul>
+              <li>Ateliers pour élaborer des plans familiaux d’urgence ;</li>
+              <li>Création de comités de veille par quartier (3 à 7 personnes) ;</li>
+              <li>Formation à la remontée d’informations et aux alertes rapides.</li>
+            </ul>
+          </div>
+
+          <div class="axis-card">
+            <div class="axis-tag">Axe 4</div>
+            <div class="axis-title">Cartographie participative des zones à risque</div>
+            <ul>
+              <li>Cartes communautaires de zones inondables et pentes instables ;</li>
+              <li>Identification des points critiques (drains bouchés, talus fragiles) ;</li>
+              <li>Base pour le plaidoyer et la priorisation des actions.</li>
+            </ul>
+          </div>
+
+          <div class="axis-card">
+            <div class="axis-tag">Axe 5</div>
+            <div class="axis-title">Environnement & cadre de vie</div>
+            <ul>
+              <li>Journées de curage de drains et de nettoyage ;</li>
+              <li>Sensibilisation à la gestion des déchets et aux maladies associées ;</li>
+              <li>Micro-projets pour stabiliser les pentes et protéger les zones rouges.</li>
+            </ul>
+          </div>
+
+          <div class="axis-card">
+            <div class="axis-tag">Axe 6</div>
+            <div class="axis-title">Premiers secours & soutien psychosocial</div>
+            <ul>
+              <li>Formations de base en premiers secours ;</li>
+              <li>Introduction aux premiers secours psychologiques ;</li>
+              <li>Réseau de relais communautaires pour l’accompagnement.</li>
+            </ul>
+          </div>
+
+          <div class="axis-card">
+            <div class="axis-tag">Axe 7</div>
+            <div class="axis-title">Simulations, plaidoyer & coordination</div>
+            <ul>
+              <li>Exercices de simulation (inondation, glissement, incendie) ;</li>
+              <li>Notes de plaidoyer à partir des réalités des quartiers ;</li>
+              <li>Participation aux mécanismes de coordination avec les autorités et ONG.</li>
+            </ul>
+          </div>
+
+          <div class="axis-card">
+            <div class="axis-tag">Axe 8</div>
+            <div class="axis-title">Épidémies & post-catastrophe</div>
+            <ul>
+              <li>Sessions WASH (eau, hygiène, assainissement) dans les zones inondables ;</li>
+              <li>Visites post-inondation pour identifier les besoins prioritaires ;</li>
+              <li>Documentation simple des incidents pour les rapports et le plaidoyer.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION : Services payants / offres -->
+      <section id="services">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Services & offres</div>
+            <h2 class="section-title">Ce que l’AIAC peut proposer (financement & partenariats)</h2>
+          </div>
+          <div class="section-sub">
+            En plus des actions communautaires, l’AIAC propose des services structurés aux institutions,
+            ONG, entreprises, écoles, communes et partenaires techniques, pour soutenir durablement
+            le travail sur le terrain (logistique, formations, déploiement d’équipes).
+          </div>
+        </div>
+
+        <div class="services-grid">
+          <div class="service-card">
+            <div class="badge-paid">Service sur devis</div>
+            <h3>Formations & ateliers spécialisés</h3>
+            <small>ONG, églises, entreprises, écoles, communes</small>
+            <ul>
+              <li>Prévention & Gestion des Catastrophes (1–3 jours) ;</li>
+              <li>Premiers secours & premiers secours psychologiques ;</li>
+              <li>Ateliers WASH, gestion des déchets, santé communautaire ;</li>
+              <li>Formation des comités de veille & équipes de réponse.</li>
+            </ul>
+            <p>Possibilité de forfaits par groupe, avec certificats de participation.</p>
+          </div>
+
+          <div class="service-card">
+            <div class="badge-paid">Service sur devis</div>
+            <h3>Audits de risques & accompagnement technique</h3>
+            <small>Écoles, centres de santé, églises, entreprises, projets immobiliers</small>
+            <ul>
+              <li>Diagnostic des risques (inondation, glissement, incendie, évacuation) ;</li>
+              <li>Recommandations techniques et organisationnelles ;</li>
+              <li>Appui à la mise en place de plans d’urgence ;</li>
+              <li>Rédaction/renforcement de plans de gestion des risques.</li>
+            </ul>
+            <p>Rapports détaillés, présentation aux équipes et appui au suivi.</p>
+          </div>
+
+          <div class="service-card">
+            <div class="badge-paid">Cofinancement / partenariat</div>
+            <h3>Projets cofinancés & partenariats</h3>
+            <small>Bailleurs, fondations, programmes humanitaires</small>
+            <ul>
+              <li>Micro-projets communautaires (prévention, WASH, résilience) ;</li>
+              <li>Projets “quartiers pilotes” ;</li>
+              <li>Suivi-évaluation, rapports narratifs et financiers ;</li>
+              <li>Intégration de l’inclusion, genre et protection.</li>
+            </ul>
+            <p>AIAC peut être partenaire de mise en œuvre ou partenaire local de référence.</p>
+          </div>
+
+          <div class="service-card">
+            <div class="badge-paid">Appui à tarif social possible</div>
+            <h3>Accompagnement des communautés & structures locales</h3>
+            <small>Associations, groupements, comités de quartier</small>
+            <ul>
+              <li>Coaching des leaders communautaires ;</li>
+              <li>Appui à la mobilisation et au plaidoyer ;</li>
+              <li>Montage de projets & recherche de financements ;</li>
+              <li>Renforcement des capacités en gestion et gouvernance.</li>
+            </ul>
+            <p>Modalités adaptées possibles pour les structures à très faibles ressources.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION : Soutenir -->
+      <section id="support">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Soutenir le programme</div>
+            <h2 class="section-title">Vous souhaitez financer ou soutenir une action à Yaoundé ?</h2>
+          </div>
+          <div class="section-sub">
+            Entreprise, fondation, église, ONG ou particulier : vous pouvez soutenir une activité ciblée,
+            un quartier, une école ou cofinancer un projet complet.
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Quelques options de soutien</h3>
+            <ul>
+              <li>Financer une campagne “saison des pluies” dans un quartier à risque ;</li>
+              <li>Prendre en charge une formation en premiers secours pour un groupe cible ;</li>
+              <li>Financer un micro-projet de curage de drains & gestion des déchets ;</li>
+              <li>Soutenir un projet “École résiliente” (club, simulation, kit WASH) ;</li>
+              <li>Contribuer à la mise en place de comités de veille & plans d’urgence.</li>
+            </ul>
+            <p>
+              L’AIAC fournit un cadre de mise en œuvre, des rapports et une redevabilité adaptée
+              (rapport d’impact, synthèse, restitution communautaire).
+            </p>
+          </div>
+
+          <div class="card">
+            <h3>Comment procéder ?</h3>
+            <p>
+              Écrivez-nous avec votre intention de soutien (type d’action, zone, budget indicatif).
+              Nous vous proposerons une fiche-projet rapide et une note de cadrage.
+            </p>
+            <p>
+              Contact principal : <strong>pca@aiac-cm.org</strong><br/>
+              Objet recommandé : <em>« Partenariat – PGC – Yaoundé »</em>.
+            </p>
+            <p>
+              WhatsApp (premier échange) : <strong>+237 671 310 883</strong>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION : Contact -->
+      <section id="contact">
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">Contact</div>
+            <h2 class="section-title">Nous écrire ou demander une intervention</h2>
+          </div>
+          <div class="section-sub">
+            Formulaire compatible <strong>votre e-mail / WhatsApp</strong> (si le site est déployé sur Netlify).
+            Vous pouvez aussi envoyer le message par e-mail (bouton dédié) ou WhatsApp.
+          </div>
+        </div>
+
+        <div class="contact-layout">
+          <div class="contact-card">
+            <form id="contactForm" autocomplete="on" onsubmit="return false;">
+              <p style="display:none;">
+                <label>Ne pas remplir : </label>
+              </p>
+
+              <label for="name">Nom & organisation (si applicable)</label>
+              <input type="text" id="name" name="name" placeholder="Ex : Mme X, École Y / ONG Z" required />
+
+              <label for="email">Adresse e-mail</label>
+              <input type="email" id="email" name="email" placeholder="vous@example.com" required />
+
+              <label for="phone">Téléphone / WhatsApp</label>
+              <input type="text" id="phone" name="phone" placeholder="+237 ..." />
+
+              <label for="subject">Objet de votre demande</label>
+              <input type="text" id="subject" name="subject" placeholder="Ex : formation, audit, partenariat..." required />
+
+              <label for="message">Message</label>
+              <textarea id="message" name="message" placeholder="Expliquez votre besoin, votre quartier, vos attentes..." required></textarea>
+
+              <div style="display:flex;gap:.7rem;flex-wrap:wrap;margin-top:.2rem;">
+                <div class="contact-actions" style="display:flex; flex-wrap:wrap; gap:0.75rem; align-items:center; margin-top:0.35rem;">
+  <a id="aiacMailLink" class="btn btn-primary" href="mailto:pca@aiac-cm.org">Envoyer par e-mail ✉️</a>
+  <a id="aiacWALink" class="whatsapp-btn" href="https://wa.me/237671310883" target="_blank" rel="noopener">Envoyer sur WhatsApp 🟢</a>
+</div>
+<p class="contact-note" style="margin-top:0.55rem; font-size:0.78rem; color:#94a3b8;">
+  Astuce : WhatsApp reprend automatiquement votre nom, numéro, objet et message.
+</p>
+                <button type="button" class="btn btn-ghost" id="mailtoBtn">Envoyer par e-mail ✉️</button>
+              </div>
+
+              <div class="contact-note">
+                • Le bouton <strong>Envoyer via le site</strong> fonctionne sur Netlify (formulaire capturé).<br/>
+                • Le bouton <strong>Envoyer par e-mail</strong> ouvre votre messagerie avec un message pré-rempli vers <strong>pca@aiac-cm.org</strong>.
+              </div>
+            </form>
+          </div>
+
+          <div class="contact-card contact-info">
+            <div class="contact-block">
+              <h3 style="margin:0 0 .5rem;">Coordonnées de contact</h3>
+              <ul class="contact-list">
+                <li><strong>E-mail PCA :</strong> <a href="mailto:pca@aiac-cm.org">pca@aiac-cm.org</a></li>
+                <li><strong>WhatsApp PCA :</strong> <a href="https://wa.me/237671310883" target="_blank" rel="noopener">+237 671 310 883</a></li>
+                <li><strong>Siège AIAC – Melong :</strong> Domicile GUETCHOU, avant hôpital La Miséricorde, Quartier Pont, Melong, Cameroun.</li>
+                <li><strong>Antenne AIAC – Maroua :</strong> Derrière hôtel RAWA, quartier Pitoaré, Maroua, Cameroun.</li>
+              </ul>
+            </div>
+
+            <div class="contact-block">
+              <h3 style="margin:0 0 .4rem;">WhatsApp direct</h3>
+              <a class="whatsapp-btn" href="https://wa.me/237671310883?text=Bonjour%20AIAC,%20je%20souhaite%20des%20informations%20sur%20le%20programme%20Pr%C3%A9vention%20%26%20Gestion%20des%20Catastrophes%20%C3%A0%20Yaound%C3%A9." target="_blank" rel="noopener">
+                <span>🟢</span> Écrire sur WhatsApp
+              </a>
+              <p class="contact-note">
+                Pour une réponse plus rapide : indiquez votre quartier, votre structure (école, ONG, entreprise, église…)
+                et le type d’appui souhaité.
+              </p>
+            </div>
+
+            <div class="contact-block">
+              <h3 style="margin:0 0 .4rem;">Navigation</h3>
+              <div style="display:flex;gap:.6rem;flex-wrap:wrap;">
+                <a class="btn btn-ghost" href="../index.html">← Retour Accueil</a>
+                <a class="btn btn-ghost" href="../explorer.html">Ouvrir l’Explorateur 📁</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <footer>
+    <div>
+      <strong>AIAC – Prévention & Gestion des Catastrophes</strong><br/>
+      Organe subsidiaire de l’Agence d’Intervention et d’Action Communautaire (AIAC).
+    </div>
+    <div>
+      Contact PCA : <strong>pca@aiac-cm.org</strong> – WhatsApp : <strong>+237 671 310 883</strong><br/>
+      &copy; <span id="year"></span> AIAC.
+    </div>
+  </footer>
+</div>
+
+<script>
+  // Mise à jour de l’année automatique
+  document.getElementById('year').textContent = new Date().getFullYear();
+
+  // Bouton "Envoyer par e-mail" (mailto pré-rempli)
+  document.getElementById('mailtoBtn').addEventListener('click', function () {
+    const name = (document.getElementById('name').value || "").trim();
+    const email = (document.getElementById('email').value || "").trim();
+    const phone = (document.getElementById('phone').value || "").trim();
+    const subject = (document.getElementById('subject').value || "Contact depuis le site AIAC – PGC Yaoundé").trim();
+    const message = (document.getElementById('message').value || "").trim();
+
+    const bodyLines = [
+      "Nom / Organisation : " + name,
+      "E-mail : " + email,
+      "Téléphone / WhatsApp : " + phone,
+      "",
+      "Objet : " + subject,
+      "",
+      "Message :",
+      message
+    ];
+
+    const mailto = "mailto:pca@aiac-cm.org"
+      + "?subject=" + encodeURIComponent(subject)
+      + "&body=" + encodeURIComponent(bodyLines.join("\n"));
+
+    window.location.href = mailto;
+  });
+</script>
+
+</body>
+</html>
