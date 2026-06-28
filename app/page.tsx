@@ -1,44 +1,49 @@
-import { aiacModules } from "@/lib/modules";
+const legacySiteUrl = "http://agenceaiac.e-monsite.com";
+const newSiteUrl = "/ancien-site/index.html";
 
 export default function Home() {
   return (
-    <main className="page">
-      <header className="header">
-        <div>
-          <p className="eyebrow">AIAC Cameroun</p>
-          <h1>Plateforme dynamique en preparation</h1>
-          <p className="lead">
-            Cette base Next.js est prete pour publier le site AIAC, connecter le domaine,
-            puis ajouter progressivement Supabase, Cloudinary, formulaires, rapports,
-            reunions et tableau de bord admin.
-          </p>
-        </div>
-        <a className="primary" href="/ancien-site/index.html">
-          Ouvrir le site actuel
-        </a>
-      </header>
-
-      <section className="panel">
-        <div className="sectionTitle">
-          <p className="eyebrow">Migration</p>
-          <h2>Ce projet garde ton site existant et prepare le futur dynamique</h2>
-        </div>
-        <div className="grid">
-          {aiacModules.map((item) => (
-            <article className="card" key={item.title}>
-              <span>{item.status}</span>
-              <h3>{item.title}</h3>
-              <p>{item.description}</p>
-            </article>
-          ))}
-        </div>
+    <main className="portalPage">
+      <section className="welcome">
+        <img className="portalLogo" src="/aiac-logo.bmp" alt="Logo AIAC" />
+        <p className="portalEyebrow">Agence d'Intervention et d'Action Communautaire</p>
+        <h1>Bienvenue sur le portail officiel de l'AIAC</h1>
+        <p className="portalLead">
+          Choisissez l'espace que vous souhaitez consulter.
+        </p>
       </section>
 
-      <section className="actions">
-        <a href="/ancien-site/explorer.html">Explorer les anciens dossiers</a>
-        <a href="/ancien-site/autres/projets.html">Voir projets</a>
-        <a href="/ancien-site/autres/rapports.html">Voir rapports</a>
-        <a href="/ancien-site/autres/agenda.html">Voir agenda</a>
+      <section className="bookGrid" aria-label="Choix du site AIAC">
+        <article className="book oldBook">
+          <div className="bookTop">
+            <span>Ancien site</span>
+            <h2>Activites realisees</h2>
+          </div>
+          <p className="bookDate">Archives disponibles au 01 juin 2026</p>
+          <p>
+            Cet espace permet de visionner certaines informations et activites
+            realisees par le passe, non encore transferees vers le nouveau site.
+          </p>
+          <a className="enterButton" href={legacySiteUrl}>
+            Entrer
+          </a>
+        </article>
+
+        <article className="book newBook">
+          <div className="bookTop">
+            <span>Nouveau site</span>
+            <h2>AIAC a jour</h2>
+          </div>
+          <p className="bookDate">Informations officielles actualisees</p>
+          <p>
+            Un nouveau site a ete construit pour mieux nous connaitre. Les
+            informations du nouveau site sont a jour et presentent l'AIAC dans
+            sa forme actuelle.
+          </p>
+          <a className="enterButton" href={newSiteUrl}>
+            Entrer
+          </a>
+        </article>
       </section>
     </main>
   );
