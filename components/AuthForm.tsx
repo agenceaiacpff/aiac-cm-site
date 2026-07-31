@@ -23,7 +23,11 @@ export default function AuthForm({ mode }: { mode: Mode }) {
     if (mode === "connexion") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setMessage(error.message);
-      else { router.push("/espace"); router.refresh(); }
+      else {
+        const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+        router.push(assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2" ? "/mfa" : "/espace");
+        router.refresh();
+      }
     } else if (mode === "inscription") {
       const { error } = await supabase.auth.signUp({
         email,

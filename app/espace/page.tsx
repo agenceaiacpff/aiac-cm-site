@@ -16,7 +16,17 @@ export default async function Espace() {
     supabase.from("notifications").select("*").order("created_at",{ascending:false})
   ]);
   if (!profile) redirect("/connexion");
+  if (profile.status === "pending") redirect("/compte-en-attente");
+  if (profile.status === "suspended") redirect("/compte-suspendu");
   const isAdmin = ["admin","super_admin"].includes(profile.role);
-  const { data: profiles } = isAdmin ? await supabase.from("profiles").select("id,full_name,email,role,status,phone,organization").order("full_name") : { data: [] };
-  return <PortalClient profile={profile} initialRequests={requests||[]} initialConversations={conversations||[]} initialNotifications={notifications||[]} staffProfiles={profiles||[]} />;
+  const isSuperAdmin = profile.role === "super_admin";
+  if (isAdmin) {
+    const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (assurance?.currentLevel !== "aal2") redirect("/mfa");
+  }
+  const [{ data: profiles }, { data: auditLogs }] = await Promise.all([
+    isAdmin ? supabase.from("profiles").select("id,full_name,email,role,status,phone,organization").order("full_name") : Promise.resolve({ data: [] }),
+    isSuperAdmin ? supabase.from("audit_logs").select("id,actor_id,action,entity_type,entity_id,details,created_at").order("created_at",{ascending:false}).limit(200) : Promise.resolve({ data: [] })
+  ]);
+  return <PortalClient profile={profile} initialRequests={requests||[]} initialConversations={conversations||[]} initialNotifications={notifications||[]} staffProfiles={profiles||[]} initialAuditLogs={auditLogs||[]} />;
 }
