@@ -17,6 +17,10 @@ Ce projet est la base robuste pour faire evoluer le site AIAC vers une plateform
 
 La migration `supabase/migrations/20260731140000_phase1_security.sql` ajoute les contrôles de sécurité de la première phase. Les changements de fonction ou de statut exigent une session MFA de niveau AAL2. Seul un super-administrateur peut gérer les comptes super-administrateurs, et le dernier super-administrateur actif ne peut pas être retiré.
 
+## Gestion opérationnelle — phase 2
+
+La migration `supabase/migrations/20260731143000_phase2_operations.sql` ajoute le portefeuille des projets, les équipes autorisées, le registre protégé des bénéficiaires, l’affectation des demandes, les tâches, les notifications opérationnelles et un coffre documentaire Supabase Storage privé. Les documents ne sont ouverts qu’au moyen d’un lien signé de courte durée et toutes les opérations importantes alimentent le journal d’audit.
+
 ## Commandes
 
 ```bash
