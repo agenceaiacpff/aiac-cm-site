@@ -9,6 +9,7 @@ import AnnouncementsPanel, { AnnouncementRow } from "@/components/AnnouncementsP
 import RequestsPanel, { RequestRow } from "@/components/RequestsPanel";
 import NotificationsPanel, { NotificationRow } from "@/components/NotificationsPanel";
 import ListToolbar, { exportCsv, paginate } from "@/components/ListToolbar";
+import InstitutionalPanel, { ActivityReportRow, ActivityRow, BodyMembershipRow, CaseActionRow, CaseFileRow, CaseNoteRow, GovernanceBodyRow, InstitutionalMemberRow, PartnerRow, PartnershipRow, ProgramRow, WorkforceAssignmentRow } from "@/components/InstitutionalPanel";
 
 type Conversation={id:string;title:string;updated_at:string};
 type Message={id:string;conversation_id:string;sender_id:string;body:string;created_at:string};
@@ -18,11 +19,15 @@ export default function PortalClient({
   profile,initialRequests,initialConversations,initialNotifications,staffProfiles,initialAuditLogs,
   initialProjects,initialProjectMembers,initialTasks,initialDocuments,initialBeneficiaries,
   initialRequestEvents,initialTaskEvents,initialAccountHistory,initialAnnouncements,initialAnnouncementReadIds,
+  initialBodies,initialInstitutionalMembers,initialBodyMemberships,initialWorkforceAssignments,initialPrograms,
+  initialPartners,initialPartnerships,initialCaseFiles,initialCaseNotes,initialCaseActions,initialActivities,initialActivityReports,
 }:{
   profile:AccountProfile;initialRequests:RequestRow[];initialConversations:Conversation[];initialNotifications:NotificationRow[];
   staffProfiles:AccountProfile[];initialAuditLogs:AuditLog[];initialProjects:ProjectRow[];initialProjectMembers:ProjectMemberRow[];
   initialTasks:TaskRow[];initialDocuments:DocumentRow[];initialBeneficiaries:BeneficiaryRow[];initialRequestEvents:WorkflowEvent[];
   initialTaskEvents:WorkflowEvent[];initialAccountHistory:AccountStatusHistory[];initialAnnouncements:AnnouncementRow[];initialAnnouncementReadIds:string[];
+  initialBodies:GovernanceBodyRow[];initialInstitutionalMembers:InstitutionalMemberRow[];initialBodyMemberships:BodyMembershipRow[];initialWorkforceAssignments:WorkforceAssignmentRow[];initialPrograms:ProgramRow[];
+  initialPartners:PartnerRow[];initialPartnerships:PartnershipRow[];initialCaseFiles:CaseFileRow[];initialCaseNotes:CaseNoteRow[];initialCaseActions:CaseActionRow[];initialActivities:ActivityRow[];initialActivityReports:ActivityReportRow[];
 }){
   const supabase=useMemo(()=>createClient(),[]);
   const router=useRouter();
@@ -40,7 +45,7 @@ export default function PortalClient({
   const isAdmin=["admin","super_admin"].includes(profile.role);
   const isSuperAdmin=profile.role==="super_admin";
 
-  useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("tab");if(requested&&["annonces","notifications","demandes","messages"].includes(requested))setTab(requested);},[]);
+  useEffect(()=>{const requested=new URLSearchParams(window.location.search).get("tab");if(requested&&["annonces","notifications","demandes","messages","operations","institution","administration","audit","profil"].includes(requested))setTab(requested);},[]);
 
   async function refreshMessages(id:string){const {data}=await supabase.from("messages").select("*").eq("conversation_id",id).order("created_at");setMessages((data||[]) as Message[]);}
   useEffect(()=>{if(!activeConversation)return;refreshMessages(activeConversation);const channel=supabase.channel(`conversation:${activeConversation}`).on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`conversation_id=eq.${activeConversation}`},payload=>setMessages(old=>[...old,payload.new as Message])).subscribe();return()=>{supabase.removeChannel(channel);};},[activeConversation,supabase]);
@@ -61,7 +66,7 @@ export default function PortalClient({
   const filteredAudit=initialAuditLogs.filter(item=>`${item.action} ${item.entity_type} ${item.entity_id||""} ${item.actor_id||""}`.toLowerCase().includes(auditQuery.toLowerCase())&&(auditType==="all"||item.entity_type===auditType));
   const pagedAudit=paginate(filteredAudit,auditPage,15);
 
-  const navItems=[["accueil","Tableau de bord"],["demandes","Mes demandes"],["messages","Messagerie"],["notifications","Notifications"],["annonces","Annonces"],["profil","Mon profil"],...(isStaff?[["operations","Gestion opérationnelle"]]:[]),...(isAdmin?[["administration","Administration"]]:[]),...(isSuperAdmin?[["audit","Journal d’audit"]]:[])];
+  const navItems=[["accueil","Tableau de bord"],["demandes","Mes demandes"],["messages","Messagerie"],["notifications","Notifications"],["annonces","Annonces"],["profil","Mon profil"],...(isStaff?[["operations","Gestion opérationnelle"],["institution","Gestion institutionnelle"]]:[]),...(isAdmin?[["administration","Administration"]]:[]),...(isSuperAdmin?[["audit","Journal d’audit"]]:[])];
 
   return <div className="portalShell">
     <aside className="portalSidebar"><a href="/" className="portalBrand"><img src="/aiac-logo.bmp" alt="AIAC"/><span><b>AIAC</b><small>Portail communautaire</small></span></a><nav>{navItems.map(([id,label])=><button key={id} className={tab===id?"active":""} onClick={()=>setTab(id)}>{label}{id==="notifications"&&notifications.some(item=>!item.read_at)&&<i className="navDot"/>}</button>)}</nav><button className="logout" onClick={logout}>Se déconnecter</button></aside>
@@ -73,7 +78,8 @@ export default function PortalClient({
       {tab==="notifications"&&<NotificationsPanel notifications={notifications} setNotifications={setNotifications}/>}
       {tab==="annonces"&&<AnnouncementsPanel profileId={profile.id} isAdmin={isAdmin} initialAnnouncements={initialAnnouncements} initialReadIds={initialAnnouncementReadIds}/>}
       {tab==="profil"&&<section className="portalPanel"><h2>Mon profil</h2><form className="inlineForm" onSubmit={updateProfile}><label>Nom complet<input name="full_name" defaultValue={profile.full_name||""} required/></label><label>E-mail<input value={profile.email||""} disabled/></label><label>Téléphone<input name="phone" defaultValue={profile.phone||""}/></label><label>Organisation<input name="organization" defaultValue={profile.organization||""}/></label><button>Enregistrer</button></form>{isAdmin&&<div className="securityBox"><h3>Sécurité renforcée active</h3><p>Les actions administratives sensibles exigent une session MFA de niveau AAL2.</p><a href="/mfa">Vérifier mon authentification</a></div>}</section>}
-      {tab==="operations"&&isStaff&&<OperationsPanel profile={profile} initialProjects={initialProjects} initialMembers={initialProjectMembers} initialTasks={initialTasks} initialDocuments={initialDocuments} initialBeneficiaries={initialBeneficiaries} initialRequests={requests} initialRequestEvents={initialRequestEvents} initialTaskEvents={initialTaskEvents} staffProfiles={staffProfiles}/>}
+      {tab==="operations"&&isStaff&&<OperationsPanel profile={profile} initialProjects={initialProjects} initialPrograms={initialPrograms} initialMembers={initialProjectMembers} initialTasks={initialTasks} initialDocuments={initialDocuments} initialBeneficiaries={initialBeneficiaries} initialRequests={requests} initialRequestEvents={initialRequestEvents} initialTaskEvents={initialTaskEvents} staffProfiles={staffProfiles}/>}
+      {tab==="institution"&&isStaff&&<InstitutionalPanel profile={profile} staffProfiles={staffProfiles} projects={initialProjects} projectMembers={initialProjectMembers} beneficiaries={initialBeneficiaries} initialBodies={initialBodies} initialInstitutionalMembers={initialInstitutionalMembers} initialBodyMemberships={initialBodyMemberships} initialWorkforceAssignments={initialWorkforceAssignments} initialPrograms={initialPrograms} initialPartners={initialPartners} initialPartnerships={initialPartnerships} initialCaseFiles={initialCaseFiles} initialCaseNotes={initialCaseNotes} initialCaseActions={initialCaseActions} initialActivities={initialActivities} initialActivityReports={initialActivityReports}/>}
       {tab==="administration"&&isAdmin&&<AccountsPanel currentProfile={profile} initialProfiles={staffProfiles} initialHistory={initialAccountHistory}/>}
       {tab==="audit"&&isSuperAdmin&&<section className="portalPanel"><h2>Journal d’audit de sécurité</h2><p>Registre en lecture seule des changements sensibles.</p><ListToolbar query={auditQuery} onQuery={setAuditQuery} status={auditType} onStatus={setAuditType} options={auditTypes.map(value=>({value,label:value}))} count={filteredAudit.length} page={pagedAudit.page} pages={pagedAudit.pages} onPage={setAuditPage} onExport={()=>exportCsv("audit-aiac.csv",["Action","Entité","Identifiant","Acteur","Date"],filteredAudit.map(item=>[item.action,item.entity_type,item.entity_id,item.actor_id,item.created_at]))} placeholder="Action, entité, identifiant ou acteur"/>{pagedAudit.items.length?pagedAudit.items.map(log=><div className="listRow auditRow" key={log.id}><div><b>{log.action}</b><small>{log.entity_type} · {log.entity_id||"—"} · acteur {log.actor_id||"système"}</small></div><time>{new Date(log.created_at).toLocaleString("fr-FR")}</time></div>):<p>Aucune opération correspondant aux critères.</p>}</section>}
     </main>
