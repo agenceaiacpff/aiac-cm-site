@@ -44,7 +44,7 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       setMessage(error ? error.message : "Compte créé. Consultez votre e-mail pour confirmer votre inscription.");
     } else {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/espace/profil`
+        redirectTo: `${window.location.origin}/auth/callback?next=/mettre-a-jour-mot-de-passe`
       });
       setMessage(error ? error.message : "Un lien de récupération vous a été envoyé par e-mail.");
     }
