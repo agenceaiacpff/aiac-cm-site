@@ -14,6 +14,21 @@ type Message={id:string;conversation_id:string;sender_id:string;body:string;crea
 type Member={conversation_id:string;user_id:string;member_role:string;joined_at:string};
 type Attachment={message_id:string;document_id:string;documents:{id:string;title:string;file_name:string|null}|null};
 
+const MAX_ATTACHMENT_SIZE=15*1024*1024;
+const attachmentMimeByExtension:Record<string,string>={
+  pdf:"application/pdf",doc:"application/msword",docx:"application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  xls:"application/vnd.ms-excel",xlsx:"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  ppt:"application/vnd.ms-powerpoint",pptx:"application/vnd.openxmlformats-officedocument.presentationml.presentation",
+  odt:"application/vnd.oasis.opendocument.text",ods:"application/vnd.oasis.opendocument.spreadsheet",odp:"application/vnd.oasis.opendocument.presentation",
+  rtf:"application/rtf",txt:"text/plain",csv:"text/csv",md:"text/markdown",json:"application/json",
+  jpg:"image/jpeg",jpeg:"image/jpeg",png:"image/png",webp:"image/webp",gif:"image/gif",bmp:"image/bmp",
+  tif:"image/tiff",tiff:"image/tiff",heic:"image/heic",heif:"image/heif",
+  zip:"application/zip",rar:"application/vnd.rar","7z":"application/x-7z-compressed",tar:"application/x-tar",gz:"application/gzip",
+  mp3:"audio/mpeg",m4a:"audio/mp4",aac:"audio/aac",wav:"audio/wav",ogg:"audio/ogg",flac:"audio/flac",
+  mp4:"video/mp4",webm:"video/webm",mov:"video/quicktime",mkv:"video/x-matroska"
+};
+const attachmentAccept=Object.keys(attachmentMimeByExtension).map(extension=>`.${extension}`).join(",");
+
 const sensitivityLabels:Record<string,string>={
   standard:"Standard",confidential:"Confidentiel",restricted:"Accès restreint",
   gbv_protection:"VBG / protection",hr:"Ressources humaines",
@@ -75,24 +90,24 @@ export default function MessageCenter({profile,initialConversations,recipients,b
     event.preventDefault();if(!activeId)return;setBusy(true);const form=event.currentTarget;const d=new FormData(form);
     const body=String(d.get("body")||"").trim();const file=d.get("file");
     if(!body&&(!(file instanceof File)||!file.size)){setNotice("Ajoutez un message ou une pièce jointe.");setBusy(false);return;}
-    const {data:message,error}=await supabase.from("messages").insert({conversation_id:activeId,sender_id:profile.id,body:body||"Pièce jointe"}).select().single();
-    if(error||!message){setNotice(error?.message||"Envoi impossible");setBusy(false);return;}
+    let path:string|null=null;let mimeType:string|null=null;
     if(file instanceof File&&file.size){
-      if(file.size>15728640){setNotice("Le message a été envoyé, mais le fichier dépasse 15 Mo.");setBusy(false);return;}
+      if(file.size>MAX_ATTACHMENT_SIZE){setNotice("Le fichier dépasse la limite de 15 Mo. Aucun message n’a été envoyé.");setBusy(false);return;}
+      const extension=file.name.split(".").pop()?.toLowerCase()||"";
+      mimeType=attachmentMimeByExtension[extension]||null;
+      if(!mimeType){setNotice("Ce format n’est pas autorisé. Utilisez un document, une image, une archive, un fichier audio ou une vidéo courante.");setBusy(false);return;}
       const safe=file.name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9._-]/g,"-");
-      const path=`${profile.id}/${crypto.randomUUID()}-${safe}`;
-      const uploaded=await supabase.storage.from("aiac-documents").upload(path,file,{contentType:file.type,upsert:false});
-      if(uploaded.error){setNotice(`Message envoyé, pièce jointe refusée : ${uploaded.error.message}`);setBusy(false);return;}
-      const classification=active?.sensitivity==="standard"?"internal":active?.sensitivity==="confidential"?"confidential":"restricted";
-      const {data:document,error:documentError}=await supabase.from("documents").insert({
-        owner_id:profile.id,title:file.name,file_url:path,file_name:file.name,mime_type:file.type||null,size_bytes:file.size,
-        visibility:"explicit",classification,conversation_id:activeId,document_status:"draft"
-      }).select().single();
-      if(documentError||!document){await supabase.storage.from("aiac-documents").remove([path]);setNotice(`Message envoyé, pièce jointe non enregistrée : ${documentError?.message||"erreur"}`);setBusy(false);return;}
-      const {data:version,error:versionError}=await supabase.from("document_versions").insert({document_id:document.id,version_number:1,storage_path:path,file_name:file.name,mime_type:file.type||null,size_bytes:file.size,change_note:"Pièce jointe au message",created_by:profile.id}).select().single();
-      if(versionError||!version){setNotice(`Message envoyé, version documentaire non enregistrée : ${versionError?.message||"erreur"}`);setBusy(false);return;}
-      await supabase.from("message_attachments").insert({message_id:message.id,document_id:document.id,attached_by:profile.id});
+      path=`${profile.id}/${crypto.randomUUID()}-${safe}`;
+      const uploaded=await supabase.storage.from("aiac-documents").upload(path,file,{contentType:mimeType,upsert:false});
+      if(uploaded.error){setNotice(`Pièce jointe refusée : ${uploaded.error.message}. Aucun message n’a été envoyé.`);setBusy(false);return;}
     }
+    const classification=active?.sensitivity==="standard"?"internal":active?.sensitivity==="confidential"?"confidential":"restricted";
+    const {error}=await supabase.rpc("send_message_with_attachment",{
+      p_conversation_id:activeId,p_body:body,p_storage_path:path,
+      p_file_name:file instanceof File&&file.size?file.name:null,p_mime_type:mimeType,
+      p_size_bytes:file instanceof File&&file.size?file.size:null,p_classification:path?classification:null
+    });
+    if(error){if(path)await supabase.storage.from("aiac-documents").remove([path]);setNotice(`Envoi impossible : ${error.message}`);setBusy(false);return;}
     form.reset();await refreshConversation(activeId);setBusy(false);
   }
 
@@ -124,7 +139,7 @@ export default function MessageCenter({profile,initialConversations,recipients,b
     </div>
     <div className="portalPanel messagePanel"><div className="panelTitleRow"><div><h2>{active?.title||"Messages"}</h2>{active&&<small>{sensitivityLabels[active.sensitivity]}{active.organization_unit_id?` · ${bodyNames[active.organization_unit_id]}`:""}</small>}</div>{canManage&&active&&<button onClick={toggleArchive} disabled={busy}>{active.status==="archived"?"Rouvrir":"Archiver"}</button>}</div>
       <div className="messageStream">{messages.map(item=><div key={item.id} className={`message ${item.sender_id===profile.id?"mine":""}`}><b>{names[item.sender_id]||"Participant"}</b><p>{item.body}</p>{attachments.filter(row=>row.message_id===item.id).map(row=><button className="attachmentLink" key={row.document_id} onClick={()=>openAttachment(row.document_id)}>📎 {row.documents?.file_name||row.documents?.title||"Pièce jointe"}</button>)}<small>{new Date(item.created_at).toLocaleString("fr-FR")}</small></div>)}{!active&&<p>Créez ou sélectionnez une conversation.</p>}</div>
-      {active&&active.status==="active"&&<form className="sendForm" onSubmit={sendMessage}><textarea name="body" placeholder="Votre message"/><input name="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png"/><button disabled={busy}>Envoyer</button></form>}
+      {active&&active.status==="active"&&<form className="sendForm" onSubmit={sendMessage}><textarea name="body" placeholder="Votre message"/><input name="file" type="file" accept={attachmentAccept}/><small>Documents, tableaux, présentations, images, archives, audio ou vidéo — 15 Mo maximum.</small><button disabled={busy}>Envoyer</button></form>}
       {active&&<div className="conversationAccess"><h3>Accès à la conversation</h3>{members.map(member=><div className="listRow" key={member.user_id}><div><b>{names[member.user_id]||"Participant"}</b><small>{member.member_role}</small></div>{canManage&&member.user_id!==profile.id&&<button onClick={()=>removeParticipant(member.user_id)} disabled={busy}>Retirer</button>}</div>)}{canManage&&<form className="conversationCreate" onSubmit={addParticipant}><select name="user_id" required><option value="">Ajouter une personne</option>{recipients.filter(row=>!members.some(member=>member.user_id===row.id)).map(row=><option value={row.id} key={row.id}>{row.full_name} · {row.position_title||row.role}</option>)}</select><select name="member_role"><option value="participant">Participant</option><option value="manager">Responsable</option><option value="observer">Observateur</option></select><button disabled={busy}>Ajouter</button></form>}</div>}
     </div>
   </section>;
