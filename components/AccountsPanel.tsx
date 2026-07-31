@@ -4,6 +4,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import ListToolbar, { exportCsv, paginate } from "@/components/ListToolbar";
 import type { GovernanceBodyRow } from "@/components/InstitutionalPanel";
+import type { SessionActivityRow } from "@/components/AuditCenter";
 
 export type AccountProfile = {
   id: string;
@@ -17,11 +18,16 @@ export type AccountProfile = {
   validated_at: string | null;
   validated_by: string | null;
   rejection_reason: string | null;
+  must_reset_password: boolean;
+  email_verified_at: string | null;
 };
 
 export type PositionDefinitionRow={id:string;code:string;title:string;institutional_level:string;body_id:string|null;authority_scope:string|null;status:string};
 export type PositionAssignmentRow={id:string;position_id:string;body_id:string;profile_id:string|null;member_id:string|null;territory:string|null;decision_reference:string;start_date:string;end_date:string|null;status:string;appointed_by:string};
 export type AccountReviewRow={id:string;profile_id:string;reviewer_id:string;decision:string;reason:string;body_id:string|null;position_assignment_id:string|null;created_at:string};
+export type PermissionRow={code:string;domain:string;name:string;description:string;sensitive:boolean};
+export type PermissionOverrideRow={id:string;profile_id:string;permission_code:string;effect:string;scope_type:string;body_id:string|null;project_id:string|null;scope_value:string|null;reason:string;starts_at:string;expires_at:string|null;granted_by:string;created_at:string};
+export type AccountScopeRow={id:string;profile_id:string;scope_type:string;body_id:string|null;project_id:string|null;territory:string|null;permission_level:string;decision_reference:string;starts_on:string;ends_on:string|null;status:string;created_by:string;created_at:string;updated_at:string};
 
 export type AccountStatusHistory = {
   id: string;
@@ -54,6 +60,10 @@ export default function AccountsPanel({
   initialPositions,
   initialPositionAssignments,
   initialReviews,
+  initialPermissions,
+  initialPermissionOverrides,
+  initialAccountScopes,
+  initialSessions,
 }: {
   currentProfile: AccountProfile;
   initialProfiles: AccountProfile[];
@@ -62,12 +72,19 @@ export default function AccountsPanel({
   initialPositions: PositionDefinitionRow[];
   initialPositionAssignments: PositionAssignmentRow[];
   initialReviews: AccountReviewRow[];
+  initialPermissions: PermissionRow[];
+  initialPermissionOverrides: PermissionOverrideRow[];
+  initialAccountScopes: AccountScopeRow[];
+  initialSessions: SessionActivityRow[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [profiles, setProfiles] = useState(initialProfiles);
   const [history, setHistory] = useState(initialHistory);
   const [assignments,setAssignments]=useState(initialPositionAssignments);
   const [reviews,setReviews]=useState(initialReviews);
+  const [permissionOverrides,setPermissionOverrides]=useState(initialPermissionOverrides);
+  const [accountScopes,setAccountScopes]=useState(initialAccountScopes);
+  const [sessions,setSessions]=useState(initialSessions);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -133,11 +150,69 @@ export default function AccountsPanel({
     if(error||!created)setNotice(error?.message||"Affectation impossible");else{setAssignments(rows=>[created as PositionAssignmentRow,...rows]);form.reset();setNotice("Poste rattaché à l’organe, au territoire et à la décision de nomination.");}setBusy(false);
   }
 
+  async function createOrInviteAccount(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();setBusy(true);const form=event.currentTarget;const data=new FormData(form);
+    const payload={
+      action:String(data.get("mode")||"invite"),email:String(data.get("email")||"").trim(),full_name:String(data.get("full_name")||"").trim(),
+      phone:String(data.get("phone")||"").trim(),organization:String(data.get("organization")||"AIAC").trim(),role:String(data.get("role")||"member"),
+      body_id:String(data.get("body_id")||"")||null,scope_type:String(data.get("scope_type")||"body"),territory:String(data.get("territory")||"").trim()||null,
+      decision_reference:String(data.get("decision_reference")||"").trim(),
+    };
+    const {data:result,error}=await supabase.functions.invoke("admin-users",{body:payload});
+    if(error||result?.error)setNotice(result?.error||error?.message||"Création impossible");
+    else{form.reset();setNotice(result.message||"Compte créé.");window.setTimeout(()=>window.location.reload(),900);}
+    setBusy(false);
+  }
+
+  async function revokeSessions(event:FormEvent<HTMLFormElement>,account:AccountProfile){
+    event.preventDefault();setBusy(true);const form=event.currentTarget;const reason=String(new FormData(form).get("reason")||"").trim();
+    const {error}=await supabase.rpc("revoke_user_sessions",{target_id:account.id,reason});
+    if(error)setNotice(error.message);else{setSessions(rows=>rows.map(row=>row.user_id===account.id&& !row.revoked_at?{...row,revoked_at:new Date().toISOString()}:row));form.reset();setNotice("Toutes les sessions du compte ont été révoquées sans suspendre le compte.");}
+    setBusy(false);
+  }
+
+  async function invokeAccountAction(event:FormEvent<HTMLFormElement>,account:AccountProfile,action:"verify_email"|"require_password_reset"){
+    event.preventDefault();setBusy(true);const form=event.currentTarget;const reason=String(new FormData(form).get("reason")||"").trim();
+    const {data:result,error}=await supabase.functions.invoke("admin-users",{body:{action,target_id:account.id,reason}});
+    if(error||result?.error)setNotice(result?.error||error?.message||"Action impossible");else{
+      if(action==="verify_email")setProfiles(rows=>rows.map(row=>row.id===account.id?{...row,email_verified_at:new Date().toISOString()}:row));
+      if(action==="require_password_reset")setProfiles(rows=>rows.map(row=>row.id===account.id?{...row,must_reset_password:true}:row));
+      form.reset();setNotice(result.message);
+    }setBusy(false);
+  }
+
+  async function assignScope(event:FormEvent<HTMLFormElement>,account:AccountProfile){
+    event.preventDefault();setBusy(true);const form=event.currentTarget;const data=new FormData(form);const scopeType=String(data.get("scope_type"));
+    const payload={profile_id:account.id,scope_type:scopeType,body_id:String(data.get("body_id")||"")||null,territory:String(data.get("territory")||"").trim()||null,permission_level:String(data.get("permission_level")),decision_reference:String(data.get("decision_reference")||"").trim(),starts_on:data.get("starts_on"),ends_on:data.get("ends_on")||null,created_by:currentProfile.id};
+    const {data:created,error}=await supabase.from("account_scope_assignments").insert(payload).select().single();
+    if(error||!created)setNotice(error?.message||"Rattachement impossible");else{setAccountScopes(rows=>[created as AccountScopeRow,...rows]);form.reset();setNotice("Périmètre institutionnel attribué et tracé.");}setBusy(false);
+  }
+
+  async function grantPermission(event:FormEvent<HTMLFormElement>,account:AccountProfile){
+    event.preventDefault();setBusy(true);const form=event.currentTarget;const data=new FormData(form);const scopeType=String(data.get("scope_type"));
+    const payload={profile_id:account.id,permission_code:String(data.get("permission_code")),effect:String(data.get("effect")),scope_type:scopeType,body_id:["body","service","antenna"].includes(scopeType)?String(data.get("body_id")||"")||null:null,scope_value:scopeType==="region"?String(data.get("scope_value")||"").trim():null,reason:String(data.get("reason")||"").trim(),expires_at:data.get("expires_at")?new Date(String(data.get("expires_at"))).toISOString():null,granted_by:currentProfile.id};
+    const {data:created,error}=await supabase.from("user_permission_overrides").insert(payload).select().single();
+    if(error||!created)setNotice(error?.message||"Permission impossible");else{setPermissionOverrides(rows=>[created as PermissionOverrideRow,...rows]);form.reset();setNotice("Permission individuelle enregistrée avec son périmètre.");}setBusy(false);
+  }
+
+  async function removePermission(id:string){
+    setBusy(true);const {error}=await supabase.from("user_permission_overrides").delete().eq("id",id);
+    if(error)setNotice(error.message);else{setPermissionOverrides(rows=>rows.filter(row=>row.id!==id));setNotice("Dérogation de permission retirée.");}setBusy(false);
+  }
+
   return (
-    <section className="portalPanel">
-      <h2>Gestion sécurisée des comptes</h2>
-      <p>Chaque changement de statut exige un motif. Seul un super-administrateur peut gérer un autre super-administrateur.</p>
+    <section className="operationsWorkspace">
       {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")}>×</button></div>}
+      {isSuperAdmin&&<div className="portalPanel"><h2>Créer ou inviter un compte</h2><p>L’invitation laisse l’utilisateur confirmer son adresse. La création administrative vérifie l’adresse et envoie immédiatement un lien pour définir le mot de passe.</p><form className="operationForm" onSubmit={createOrInviteAccount}>
+        <select name="mode"><option value="invite">Inviter par e-mail</option><option value="create">Créer et envoyer la configuration</option></select>
+        <input name="full_name" minLength={2} placeholder="Nom complet" required/><input name="email" type="email" placeholder="Adresse e-mail" required/><input name="phone" placeholder="Téléphone / WhatsApp"/><input name="organization" defaultValue="AIAC" placeholder="Organisation"/>
+        <select name="role" defaultValue="member">{Object.entries(roleLabels).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select>
+        <select name="scope_type" defaultValue="body"><option value="body">Organe central ou subsidiaire</option><option value="service">Service structuré</option><option value="regional_coordination">Coordination régionale</option><option value="antenna">Antenne</option></select>
+        <select name="body_id"><option value="">Aucun rattachement initial</option>{initialBodies.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}{row.region?` · ${row.region}`:""}</option>)}</select>
+        <input name="territory" placeholder="Région, localité ou territoire"/><input name="decision_reference" placeholder="Décision / note de service de référence"/><button disabled={busy}>Créer ou inviter</button>
+      </form></div>}
+      <div className="portalPanel"><h2>Gestion sécurisée des comptes</h2>
+      <p>Chaque rôle, statut, permission et périmètre est indépendant et tracé. Seul un super-administrateur peut gérer un autre super-administrateur.</p>
       <ListToolbar
         query={query} onQuery={setQuery} status={status} onStatus={setStatus}
         options={Object.entries(statusLabels).map(([value, label]) => ({ value, label }))}
@@ -149,6 +224,9 @@ export default function AccountsPanel({
         const protectedSuper = account.role === "super_admin" && !isSuperAdmin;
         const ownSuper = account.id === currentProfile.id && account.role === "super_admin";
         const accountHistory = history.filter((entry) => entry.profile_id === account.id).slice(0, 5);
+        const accountScopesForUser=accountScopes.filter(row=>row.profile_id===account.id);
+        const overridesForUser=permissionOverrides.filter(row=>row.profile_id===account.id);
+        const sessionsForUser=sessions.filter(row=>row.user_id===account.id);
         return (
           <details className="workflowCard" key={account.id}>
             <summary>
@@ -178,6 +256,9 @@ export default function AccountsPanel({
                 {assignments.filter(row=>row.profile_id===account.id).map(row=>{const position=initialPositions.find(item=>item.id===row.position_id);const body=initialBodies.find(item=>item.id===row.body_id);return <div className="eventItem" key={row.id}><b>{position?.title||"Poste"}</b><p>{body?.code} · {body?.name}{row.territory?` · ${row.territory}`:""}</p><small>{row.decision_reference} · depuis le {new Date(row.start_date).toLocaleDateString("fr-FR")}</small></div>})}
                 {isSuperAdmin&&<form className="operationForm compact" onSubmit={event=>assignPosition(event,account)}><select name="position_id" required><option value="">Poste officiel</option>{initialPositions.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.title}</option>)}</select><select name="body_id" required><option value="">Organe / niveau</option>{initialBodies.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}</option>)}</select><input name="territory" placeholder="Région, antenne ou territoire"/><input name="decision_reference" minLength={2} placeholder="Décision / délégation de référence" required/><label>Début<input name="start_date" type="date" defaultValue={new Date().toISOString().slice(0,10)} required/></label><button disabled={busy}>Affecter le poste</button></form>}
               </div>
+              {isSuperAdmin&&<div className="eventTimeline"><h3>Périmètres d’accès structurés</h3>{accountScopesForUser.map(row=>{const body=initialBodies.find(item=>item.id===row.body_id);return <div className="eventItem" key={row.id}><b>{row.permission_level} · {row.scope_type}</b><p>{body?`${body.code} · ${body.name}`:"Projet"}{row.territory?` · ${row.territory}`:""}</p><small>{row.decision_reference} · depuis le {new Date(row.starts_on).toLocaleDateString("fr-FR")}</small></div>})}<form className="operationForm compact" onSubmit={event=>assignScope(event,account)}><select name="scope_type"><option value="body">Organe</option><option value="service">Service</option><option value="regional_coordination">Coordination régionale</option><option value="antenna">Antenne</option></select><select name="body_id" required><option value="">Structure</option>{initialBodies.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}{row.region?` · ${row.region}`:""}</option>)}</select><select name="permission_level"><option value="viewer">Consultation</option><option value="contributor">Contribution</option><option value="manager">Gestion</option><option value="authority">Autorité</option></select><input name="territory" placeholder="Territoire précis"/><input name="decision_reference" minLength={2} placeholder="Décision / note de service" required/><label>Début<input name="starts_on" type="date" defaultValue={new Date().toISOString().slice(0,10)} required/></label><label>Fin<input name="ends_on" type="date"/></label><button disabled={busy}>Attribuer le périmètre</button></form></div>}
+              {isSuperAdmin&&<div className="eventTimeline"><h3>Permissions individuelles granulaires</h3>{overridesForUser.map(row=><div className="eventItem" key={row.id}><b>{row.effect==="allow"?"AUTORISER":"REFUSER"} · {row.permission_code}</b><p>{row.scope_type}{row.scope_value?` · ${row.scope_value}`:""} · {row.reason}</p><small>{row.expires_at?`Expire le ${new Date(row.expires_at).toLocaleString("fr-FR")}`:"Sans expiration"} <button type="button" onClick={()=>removePermission(row.id)} disabled={busy}>Retirer</button></small></div>)}<form className="operationForm compact" onSubmit={event=>grantPermission(event,account)}><select name="permission_code" required><option value="">Permission</option>{initialPermissions.map(row=><option value={row.code} key={row.code}>{row.name} · {row.code}</option>)}</select><select name="effect"><option value="allow">Autoriser</option><option value="deny">Refuser</option></select><select name="scope_type"><option value="global">Global</option><option value="body">Organe</option><option value="service">Service</option><option value="antenna">Antenne</option><option value="region">Région</option></select><select name="body_id"><option value="">Structure si nécessaire</option>{initialBodies.map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}</option>)}</select><input name="scope_value" placeholder="Nom de la région si applicable"/><input name="reason" minLength={5} placeholder="Motif de la dérogation" required/><label>Expiration<input name="expires_at" type="datetime-local"/></label><button disabled={busy}>Enregistrer</button></form></div>}
+              {isSuperAdmin&&<div className="eventTimeline"><h3>Sécurité, adresse électronique et appareils</h3><p>{account.email_verified_at?`Adresse vérifiée le ${new Date(account.email_verified_at).toLocaleString("fr-FR")}`:"Adresse non confirmée administrativement"} · {account.must_reset_password?"Changement de mot de passe obligatoire":"Mot de passe non signalé"}</p><div className="institutionalSplit"><form className="commentForm" onSubmit={event=>revokeSessions(event,account)}><input name="reason" minLength={5} placeholder="Motif de révocation des sessions" required/><button disabled={busy||account.id===currentProfile.id}>Révoquer toutes les sessions</button></form><form className="commentForm" onSubmit={event=>invokeAccountAction(event,account,"require_password_reset")}><input name="reason" minLength={5} placeholder="Motif de réinitialisation" required/><button disabled={busy}>Imposer un nouveau mot de passe</button></form>{!account.email_verified_at&&<form className="commentForm" onSubmit={event=>invokeAccountAction(event,account,"verify_email")}><input name="reason" minLength={5} placeholder="Justification de la vérification manuelle" required/><button disabled={busy}>Vérifier l’adresse e-mail</button></form>}</div>{sessionsForUser.length? sessionsForUser.map(row=><div className="eventItem" key={row.id}><b>{row.revoked_at?"Session révoquée":"Session observée"}</b><p>{row.source_ip||"IP non disponible"} · {row.user_agent?.slice(0,140)||"Appareil non renseigné"}</p><small>Première connexion {new Date(row.first_seen_at).toLocaleString("fr-FR")} · dernière activité {new Date(row.last_seen_at).toLocaleString("fr-FR")}</small></div>):<p>Aucune session observée pour ce compte.</p>}</div>}
               <div className="eventTimeline">
                 <h3>Historique des statuts</h3>
                 {accountHistory.length ? accountHistory.map((entry) => (
@@ -193,6 +274,7 @@ export default function AccountsPanel({
           </details>
         );
       })}
+      </div>
     </section>
   );
 }

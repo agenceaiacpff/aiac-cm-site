@@ -21,7 +21,8 @@ export async function updateSession(request: NextRequest) {
   );
 
   const { data } = await supabase.auth.getClaims();
-  const isProtected = request.nextUrl.pathname.startsWith("/espace");
+  const isPasswordUpdate = request.nextUrl.pathname.startsWith("/mettre-a-jour-mot-de-passe");
+  const isProtected = request.nextUrl.pathname.startsWith("/espace") || isPasswordUpdate;
   if (isProtected && !data?.claims) {
     const url = request.nextUrl.clone();
     url.pathname = "/connexion";
@@ -32,7 +33,7 @@ export async function updateSession(request: NextRequest) {
   if (isProtected && data?.claims?.sub) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role,status,registration_state")
+      .select("role,status,registration_state,must_reset_password")
       .eq("id", data.claims.sub)
       .single();
 
@@ -57,6 +58,12 @@ export async function updateSession(request: NextRequest) {
     if (profile.status === "suspended") {
       const url = request.nextUrl.clone();
       url.pathname = "/compte-suspendu";
+      return NextResponse.redirect(url);
+    }
+
+    if (profile.must_reset_password && !isPasswordUpdate) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/mettre-a-jour-mot-de-passe";
       return NextResponse.redirect(url);
     }
 
