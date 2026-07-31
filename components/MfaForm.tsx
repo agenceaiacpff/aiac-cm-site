@@ -42,12 +42,29 @@ export default function MfaForm() {
         return;
       }
 
+      // An interrupted enrollment remains attached to the account as an
+      // unverified factor. Remove it before starting over, otherwise Supabase
+      // rejects the reused friendly name and the user never receives a QR code.
+      const incompleteFactors = factors.data.all.filter(
+        (factor) => factor.factor_type === "totp" && factor.status === "unverified"
+      );
+      for (const factor of incompleteFactors) {
+        const removal = await supabase.auth.mfa.unenroll({ factorId: factor.id });
+        if (removal.error) {
+          setMessage(
+            "Une ancienne configuration incomplète n’a pas pu être remplacée. Déconnectez-vous, reconnectez-vous puis réessayez."
+          );
+          setLoading(false);
+          return;
+        }
+      }
+
       const enrollment = await supabase.auth.mfa.enroll({
         factorType: "totp",
         friendlyName: "Portail AIAC"
       });
       if (enrollment.error) {
-        setMessage(enrollment.error.message);
+        setMessage("La configuration de la double authentification a échoué. Actualisez la page pour réessayer.");
         setLoading(false);
         return;
       }
@@ -87,6 +104,8 @@ export default function MfaForm() {
     router.refresh();
   }
 
+  const canVerify = Boolean(verifiedFactorId || setup?.factorId);
+
   return (
     <form className="authForm mfaForm" onSubmit={verify}>
       <p className="formMessage" role="status">{message}</p>
@@ -94,8 +113,8 @@ export default function MfaForm() {
         <img className="mfaQr" src={setup.qr} alt="QR code d’activation de l’authentification à deux facteurs" />
         <details><summary>Impossible de scanner le QR code ?</summary><code>{setup.secret}</code></details>
       </>}
-      {!loading && <label>Code de sécurité<input name="code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 8))} required /></label>}
-      <button disabled={loading || code.length < 6}>{loading ? "Traitement…" : "Vérifier et continuer"}</button>
+      {!loading && canVerify && <label>Code de sécurité<input name="code" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, "").slice(0, 8))} required /></label>}
+      {canVerify && <button disabled={loading || code.length < 6}>{loading ? "Traitement…" : "Vérifier et continuer"}</button>}
     </form>
   );
 }
