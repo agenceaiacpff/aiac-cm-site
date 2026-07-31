@@ -32,7 +32,7 @@ export async function updateSession(request: NextRequest) {
   if (isProtected && data?.claims?.sub) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role,status")
+      .select("role,status,registration_state")
       .eq("id", data.claims.sub)
       .single();
 
@@ -42,7 +42,13 @@ export async function updateSession(request: NextRequest) {
       return NextResponse.redirect(url);
     }
 
-    if (profile.status === "pending") {
+    if (profile.registration_state === "rejected") {
+      const url = request.nextUrl.clone();
+      url.pathname = "/compte-refuse";
+      return NextResponse.redirect(url);
+    }
+
+    if (profile.status === "pending" || profile.registration_state !== "approved") {
       const url = request.nextUrl.clone();
       url.pathname = "/compte-en-attente";
       return NextResponse.redirect(url);
@@ -60,6 +66,12 @@ export async function updateSession(request: NextRequest) {
       url.pathname = "/mfa";
       return NextResponse.redirect(url);
     }
+
+    await supabase.rpc("record_session_activity", {
+      session_identifier: String(data.claims.session_id || data.claims.sub),
+      client_ip: request.headers.get("x-forwarded-for"),
+      client_user_agent: request.headers.get("user-agent")
+    });
   }
   response.headers.set("Cache-Control", "private, no-store");
   return response;
