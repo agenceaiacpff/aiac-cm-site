@@ -1,5 +1,5 @@
 const legacySiteUrl = "http://agenceaiac.e-monsite.com";
-const newSiteUrl = "/ancien-site/index.html";
+const newSiteUrl = "/nouveau-site/index.html";
 
 export default function Home() {
   return (
@@ -9,8 +9,12 @@ export default function Home() {
         <p className="portalEyebrow">Agence d'Intervention et d'Action Communautaire</p>
         <h1>Bienvenue sur le portail officiel de l'AIAC</h1>
         <p className="portalLead">
-          Choisissez l'espace que vous souhaitez consulter.
+          Consultez nos activités publiques ou connectez-vous à votre espace AIAC.
         </p>
+        <div className="portalActions">
+          <a className="enterButton" href="/connexion">Se connecter</a>
+          <a className="secondaryButton" href="/inscription">Créer un compte</a>
+        </div>
       </section>
 
       <section className="bookGrid" aria-label="Choix du site AIAC">
