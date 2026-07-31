@@ -1,0 +1,145 @@
+"use client";
+
+import { FormEvent, useMemo, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+
+export type OperationProfile = { id:string; full_name:string|null; email:string|null; role:string; status:string };
+export type ProjectRow = { id:string; code:string; name:string; description:string|null; status:string; location:string|null; start_date:string|null; end_date:string|null; budget_amount:number|null; budget_currency:string; created_by:string; updated_at:string };
+export type ProjectMemberRow = { project_id:string; user_id:string; member_role:string; joined_at:string };
+export type TaskRow = { id:string; title:string; description:string|null; request_id:string|null; project_id:string|null; created_by:string; assigned_to:string|null; status:string; priority:string; due_at:string|null; completed_at:string|null; created_at:string };
+export type DocumentRow = { id:string; owner_id:string; request_id:string|null; project_id:string|null; title:string; file_url:string; file_name:string|null; mime_type:string|null; size_bytes:number|null; visibility:string; created_at:string };
+export type BeneficiaryRow = { id:string; reference_code:string; project_id:string; full_name:string; gender:string; birth_date:string|null; phone:string|null; locality:string|null; support_notes:string|null; consent_at:string|null; status:string; assigned_to:string|null; created_at:string };
+export type OperationalRequest = { id:string; subject:string; request_type:string; status:string; priority:string; created_at:string; created_by?:string; assigned_to?:string|null; project_id?:string|null };
+
+const projectStatus:Record<string,string>={planned:"Planifié",active:"Actif",on_hold:"En pause",completed:"Terminé",cancelled:"Annulé"};
+const taskStatus:Record<string,string>={todo:"À faire",in_progress:"En cours",blocked:"Bloquée",done:"Terminée",cancelled:"Annulée"};
+const requestStatus:Record<string,string>={new:"Nouvelle",under_review:"À examiner",assigned:"Affectée",in_progress:"En cours",waiting_user:"En attente du demandeur",resolved:"Résolue",closed:"Clôturée",rejected:"Rejetée"};
+const priorities:Record<string,string>={low:"Faible",normal:"Normale",high:"Élevée",urgent:"Urgente"};
+
+export default function OperationsPanel({
+  profile, initialProjects, initialMembers, initialTasks, initialDocuments,
+  initialBeneficiaries, initialRequests, staffProfiles
+}:{
+  profile:OperationProfile;
+  initialProjects:ProjectRow[];
+  initialMembers:ProjectMemberRow[];
+  initialTasks:TaskRow[];
+  initialDocuments:DocumentRow[];
+  initialBeneficiaries:BeneficiaryRow[];
+  initialRequests:OperationalRequest[];
+  staffProfiles:OperationProfile[];
+}) {
+  const supabase=useMemo(()=>createClient(),[]);
+  const [view,setView]=useState("pilotage");
+  const [projects,setProjects]=useState(initialProjects);
+  const [members,setMembers]=useState(initialMembers);
+  const [tasks,setTasks]=useState(initialTasks);
+  const [documents,setDocuments]=useState(initialDocuments);
+  const [beneficiaries,setBeneficiaries]=useState(initialBeneficiaries);
+  const [requests,setRequests]=useState(initialRequests);
+  const [notice,setNotice]=useState("");
+  const [busy,setBusy]=useState(false);
+  const isAdmin=["admin","super_admin"].includes(profile.role);
+  const profileNames=useMemo(()=>Object.fromEntries(staffProfiles.map(item=>[item.id,item.full_name||item.email||"Compte AIAC"])),[staffProfiles]);
+  const projectNames=useMemo(()=>Object.fromEntries(projects.map(item=>[item.id,item.name])),[projects]);
+  const activeStaff=staffProfiles.filter(item=>item.status==="active"&&["staff","manager","admin","super_admin"].includes(item.role));
+  const activeCollaborators=staffProfiles.filter(item=>item.status==="active"&&["volunteer","staff","manager","partner","admin","super_admin"].includes(item.role));
+  const managedProjectIds=new Set(members.filter(item=>item.user_id===profile.id&&item.member_role==="lead").map(item=>item.project_id));
+  const manageableProjects=isAdmin?projects:projects.filter(item=>managedProjectIds.has(item.id));
+  const writableProjectIds=new Set(members.filter(item=>item.user_id===profile.id&&item.member_role!=="viewer").map(item=>item.project_id));
+  const writableProjects=isAdmin?projects:projects.filter(item=>writableProjectIds.has(item.id));
+
+  function showError(message:string){setNotice(message);setBusy(false);}
+
+  async function createProject(event:FormEvent<HTMLFormElement>){
+    event.preventDefault(); setBusy(true); const form=event.currentTarget; const data=new FormData(form);
+    const payload={
+      code:String(data.get("code")||"").trim().toUpperCase().replace(/[^A-Z0-9_-]/g,"-"),
+      name:String(data.get("name")||"").trim(),description:String(data.get("description")||"").trim()||null,
+      location:String(data.get("location")||"").trim()||null,start_date:data.get("start_date")||null,end_date:data.get("end_date")||null,
+      budget_amount:data.get("budget_amount")?Number(data.get("budget_amount")):null,budget_currency:"XAF",created_by:profile.id
+    };
+    const {data:created,error}=await supabase.from("projects").insert(payload).select().single();
+    if(error||!created){showError(error?.message||"Création impossible");return;}
+    await supabase.from("project_members").insert({project_id:created.id,user_id:profile.id,member_role:"lead",added_by:profile.id});
+    setProjects([created as ProjectRow,...projects]); form.reset(); setNotice("Projet créé et ajouté au portefeuille AIAC."); setBusy(false);
+  }
+
+  async function addMember(event:FormEvent<HTMLFormElement>){
+    event.preventDefault(); setBusy(true); const form=event.currentTarget; const data=new FormData(form);
+    const payload={project_id:String(data.get("project_id")),user_id:String(data.get("user_id")),member_role:String(data.get("member_role")),added_by:profile.id};
+    const {data:created,error}=await supabase.from("project_members").insert(payload).select().single();
+    if(error||!created){showError(error?.message||"Ajout impossible");return;}
+    setMembers([...members,created as ProjectMemberRow]); form.reset(); setNotice("Membre ajouté à l’équipe du projet."); setBusy(false);
+  }
+
+  async function createTask(event:FormEvent<HTMLFormElement>){
+    event.preventDefault(); setBusy(true); const form=event.currentTarget; const data=new FormData(form);
+    const payload={title:String(data.get("title")||"").trim(),description:String(data.get("description")||"").trim()||null,project_id:String(data.get("project_id")||"")||null,assigned_to:String(data.get("assigned_to")||"")||null,priority:String(data.get("priority")||"normal"),due_at:data.get("due_at")?new Date(String(data.get("due_at"))).toISOString():null,created_by:profile.id};
+    const {data:created,error}=await supabase.from("tasks").insert(payload).select().single();
+    if(error||!created){showError(error?.message||"Création impossible");return;}
+    setTasks([created as TaskRow,...tasks]); form.reset(); setNotice("Tâche créée et notification envoyée au responsable."); setBusy(false);
+  }
+
+  async function updateTask(id:string,status:string){
+    const {data,error}=await supabase.from("tasks").update({status}).eq("id",id).select().single();
+    if(error||!data){showError(error?.message||"Mise à jour impossible");return;}
+    setTasks(tasks.map(item=>item.id===id?data as TaskRow:item)); setNotice("État de la tâche mis à jour.");
+  }
+
+  async function updateRequest(event:FormEvent<HTMLFormElement>,id:string){
+    event.preventDefault(); setBusy(true); const data=new FormData(event.currentTarget); const current=requests.find(item=>item.id===id);
+    if(!current){showError("Demande introuvable.");return;}
+    const payload={status:String(data.get("status")??current.status),priority:String(data.get("priority")??current.priority),assigned_to:data.has("assigned_to")?(String(data.get("assigned_to")||"")||null):(current.assigned_to||null),project_id:data.has("project_id")?(String(data.get("project_id")||"")||null):(current.project_id||null)};
+    const {data:updated,error}=await supabase.from("requests").update(payload).eq("id",id).select().single();
+    if(error||!updated){showError(error?.message||"Mise à jour impossible");return;}
+    setRequests(requests.map(item=>item.id===id?updated as OperationalRequest:item)); setNotice("Demande affectée et mise à jour."); setBusy(false);
+  }
+
+  async function createBeneficiary(event:FormEvent<HTMLFormElement>){
+    event.preventDefault(); setBusy(true); const form=event.currentTarget; const data=new FormData(form);
+    const payload={project_id:String(data.get("project_id")),full_name:String(data.get("full_name")||"").trim(),gender:String(data.get("gender")||"unknown"),birth_date:data.get("birth_date")||null,phone:String(data.get("phone")||"").trim()||null,locality:String(data.get("locality")||"").trim()||null,support_notes:String(data.get("support_notes")||"").trim()||null,consent_at:data.get("consent")?new Date().toISOString():null,assigned_to:String(data.get("assigned_to")||"")||null,created_by:profile.id};
+    const {data:created,error}=await supabase.from("beneficiaries").insert(payload).select().single();
+    if(error||!created){showError(error?.message||"Enregistrement impossible");return;}
+    setBeneficiaries([created as BeneficiaryRow,...beneficiaries]); form.reset(); setNotice("Bénéficiaire enregistré avec traçabilité du consentement."); setBusy(false);
+  }
+
+  async function uploadDocument(event:FormEvent<HTMLFormElement>){
+    event.preventDefault(); setBusy(true); const form=event.currentTarget; const data=new FormData(form); const file=data.get("file");
+    if(!(file instanceof File)||file.size===0){showError("Sélectionnez un fichier.");return;}
+    if(file.size>15728640){showError("Le fichier dépasse la limite de 15 Mo.");return;}
+    const safeName=file.name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9._-]/g,"-");
+    const objectPath=`${profile.id}/${crypto.randomUUID()}-${safeName}`;
+    const upload=await supabase.storage.from("aiac-documents").upload(objectPath,file,{contentType:file.type,upsert:false});
+    if(upload.error){showError(upload.error.message);return;}
+    const payload={owner_id:profile.id,project_id:String(data.get("project_id")||"")||null,request_id:String(data.get("request_id")||"")||null,title:String(data.get("title")||file.name).trim(),file_url:objectPath,file_name:file.name,mime_type:file.type||null,size_bytes:file.size,visibility:String(data.get("visibility")||"private")};
+    const {data:created,error}=await supabase.from("documents").insert(payload).select().single();
+    if(error||!created){await supabase.storage.from("aiac-documents").remove([objectPath]);showError(error?.message||"Enregistrement impossible");return;}
+    setDocuments([created as DocumentRow,...documents]); form.reset(); setNotice("Document chiffré en transit et enregistré dans le coffre privé."); setBusy(false);
+  }
+
+  async function openDocument(document:DocumentRow){
+    const {data,error}=await supabase.storage.from("aiac-documents").createSignedUrl(document.file_url,60,{download:document.file_name||document.title});
+    if(error||!data){showError(error?.message||"Ouverture impossible");return;}
+    window.open(data.signedUrl,"_blank","noopener,noreferrer");
+  }
+
+  return <section className="operationsWorkspace">
+    {notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
+    <div className="operationNav">
+      {[["pilotage","Pilotage"],["projets","Projets et équipes"],["demandes","Demandes"],["taches","Tâches"],["beneficiaires","Bénéficiaires"],["documents","Documents"]].map(([id,label])=><button key={id} className={view===id?"active":""} onClick={()=>setView(id)}>{label}</button>)}
+    </div>
+
+    {view==="pilotage"&&<><div className="statGrid operationStats"><article><b>{projects.filter(item=>item.status==="active").length}</b><span>Projets actifs</span></article><article><b>{tasks.filter(item=>!["done","cancelled"].includes(item.status)).length}</b><span>Tâches ouvertes</span></article><article><b>{requests.filter(item=>!["resolved","closed","rejected"].includes(item.status)).length}</b><span>Demandes à suivre</span></article><article><b>{beneficiaries.filter(item=>item.status==="active").length}</b><span>Bénéficiaires actifs</span></article></div><div className="portalPanel"><h2>Portefeuille opérationnel AIAC</h2><p>Cette vue regroupe les projets, les responsabilités, les échéances et les dossiers de bénéficiaires auxquels votre compte est autorisé à accéder.</p>{tasks.filter(item=>item.status!=="done"&&item.due_at).sort((a,b)=>String(a.due_at).localeCompare(String(b.due_at))).slice(0,5).map(item=><div className="listRow" key={item.id}><div><b>{item.title}</b><small>{item.project_id?projectNames[item.project_id]:"Sans projet"} · {item.assigned_to?profileNames[item.assigned_to]:"Non affectée"}</small></div><span>{item.due_at?new Date(item.due_at).toLocaleDateString("fr-FR"):"—"}</span></div>)}</div></>}
+
+    {view==="projets"&&<><div className="portalPanel"><h2>Projets</h2>{isAdmin&&<form className="operationForm" onSubmit={createProject}><input name="code" placeholder="Code : AIAC-2026-01" minLength={2} maxLength={30} required/><input name="name" placeholder="Nom du projet" required/><textarea name="description" placeholder="Objectif et description"/><input name="location" placeholder="Zone d’intervention"/><label>Début<input name="start_date" type="date"/></label><label>Fin<input name="end_date" type="date"/></label><label>Budget prévisionnel (XAF)<input name="budget_amount" type="number" min="0" step="1"/></label><button disabled={busy}>Créer le projet</button></form>}{projects.length?projects.map(project=><article className="projectCard" key={project.id}><div><span className={`operationBadge ${project.status}`}>{projectStatus[project.status]||project.status}</span><h3>{project.code} · {project.name}</h3><p>{project.description||"Aucune description"}</p><small>{project.location||"Zone non définie"} · {project.start_date?new Date(project.start_date).toLocaleDateString("fr-FR"):"Date à définir"}</small></div><div><b>{members.filter(item=>item.project_id===project.id).length}</b><small>membre(s) dans l’équipe</small></div></article>):<p>Aucun projet accessible.</p>}</div>{manageableProjects.length>0&&<div className="portalPanel"><h2>Composer une équipe</h2><form className="operationForm compact" onSubmit={addMember}><select name="project_id" required><option value="">Projet</option>{manageableProjects.map(item=><option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select><select name="user_id" required><option value="">Collaborateur</option>{activeCollaborators.filter(item=>item.id!==profile.id).map(item=><option key={item.id} value={item.id}>{item.full_name||item.email}</option>)}</select><select name="member_role"><option value="lead">Responsable</option><option value="officer">Agent</option><option value="contributor">Contributeur</option><option value="viewer">Observateur</option></select><button disabled={busy}>Ajouter</button></form>{members.map(member=><div className="listRow" key={`${member.project_id}-${member.user_id}`}><div><b>{profileNames[member.user_id]||member.user_id}</b><small>{projectNames[member.project_id]||member.project_id}</small></div><span>{member.member_role}</span></div>)}</div>}</>}
+
+    {view==="demandes"&&<div className="portalPanel"><h2>Traitement des demandes</h2>{requests.length?requests.map(request=>{const canManage=isAdmin||(request.project_id?managedProjectIds.has(request.project_id):false);const canUpdateStatus=canManage||request.assigned_to===profile.id;return <form className="requestWorkflow" key={request.id} onSubmit={event=>updateRequest(event,request.id)}><div><b>{request.subject}</b><small>{request.request_type} · {new Date(request.created_at).toLocaleDateString("fr-FR")}</small></div><select name="status" defaultValue={request.status} disabled={!canUpdateStatus}>{Object.entries(requestStatus).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select><select name="priority" defaultValue={request.priority} disabled={!canManage}>{Object.entries(priorities).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select><select name="assigned_to" defaultValue={request.assigned_to||""} disabled={!canManage}><option value="">Non affectée</option>{activeStaff.map(item=><option value={item.id} key={item.id}>{item.full_name||item.email}</option>)}</select><select name="project_id" defaultValue={request.project_id||""} disabled={!canManage}><option value="">Sans projet</option>{projects.map(item=><option value={item.id} key={item.id}>{item.code}</option>)}</select><button disabled={busy||!canUpdateStatus}>Enregistrer</button></form>}):<p>Aucune demande à traiter.</p>}</div>}
+
+    {view==="taches"&&<><div className="portalPanel"><h2>Nouvelle tâche</h2>{writableProjects.length?<form className="operationForm compact" onSubmit={createTask}><input name="title" placeholder="Intitulé de la tâche" required/><textarea name="description" placeholder="Consignes"/><select name="project_id" required><option value="">Projet</option>{writableProjects.map(item=><option value={item.id} key={item.id}>{item.code} · {item.name}</option>)}</select><select name="assigned_to"><option value="">Non affectée</option>{activeStaff.map(item=><option value={item.id} key={item.id}>{item.full_name||item.email}</option>)}</select><select name="priority" defaultValue="normal">{Object.entries(priorities).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select><label>Échéance<input name="due_at" type="datetime-local"/></label><button disabled={busy}>Créer</button></form>:<p>Vous disposez d’un accès en lecture seule aux projets visibles.</p>}</div><div className="portalPanel"><h2>Plan de travail</h2>{tasks.length?tasks.map(task=>{const canUpdate=task.assigned_to===profile.id||isAdmin||(task.project_id?managedProjectIds.has(task.project_id):false);return <div className="taskCard" key={task.id}><div><b>{task.title}</b><small>{task.project_id?projectNames[task.project_id]:"Sans projet"} · {task.assigned_to?profileNames[task.assigned_to]:"Non affectée"} · priorité {priorities[task.priority]}</small></div><select value={task.status} disabled={!canUpdate} onChange={event=>updateTask(task.id,event.target.value)}>{Object.entries(taskStatus).map(([value,label])=><option value={value} key={value}>{label}</option>)}</select><time>{task.due_at?new Date(task.due_at).toLocaleString("fr-FR"):"Sans échéance"}</time></div>}):<p>Aucune tâche.</p>}</div></>}
+
+    {view==="beneficiaires"&&<><div className="portalPanel"><h2>Enregistrer un bénéficiaire</h2>{manageableProjects.length>0?<form className="operationForm" onSubmit={createBeneficiary}><select name="project_id" required><option value="">Projet concerné</option>{manageableProjects.map(item=><option key={item.id} value={item.id}>{item.code} · {item.name}</option>)}</select><input name="full_name" placeholder="Nom complet" required/><select name="gender" defaultValue="unknown"><option value="unknown">Genre non renseigné</option><option value="female">Femme</option><option value="male">Homme</option><option value="other">Autre</option><option value="prefer_not_to_say">Préfère ne pas répondre</option></select><label>Date de naissance<input name="birth_date" type="date"/></label><input name="phone" placeholder="Téléphone"/><input name="locality" placeholder="Localité"/><select name="assigned_to"><option value="">Agent responsable</option>{activeStaff.map(item=><option key={item.id} value={item.id}>{item.full_name||item.email}</option>)}</select><textarea name="support_notes" placeholder="Appui prévu — ne saisir que les données strictement nécessaires" maxLength={5000}/><label className="consentCheck"><input name="consent" type="checkbox" required/> Consentement obtenu et enregistré</label><button disabled={busy}>Enregistrer</button></form>:<p>Seuls les responsables autorisés peuvent créer un dossier bénéficiaire.</p>}</div><div className="portalPanel"><h2>Registre autorisé</h2>{beneficiaries.length?beneficiaries.map(item=><div className="listRow beneficiaryRow" key={item.id}><div><b>{item.full_name}</b><small>{item.reference_code} · {projectNames[item.project_id]} · {item.locality||"Localité non renseignée"}</small></div><span>{item.status}</span></div>):<p>Aucun bénéficiaire accessible.</p>}</div></>}
+
+    {view==="documents"&&<><div className="portalPanel"><h2>Déposer un document</h2><form className="operationForm" onSubmit={uploadDocument}><input name="title" placeholder="Titre du document" required/><select name="project_id"><option value="">Document personnel</option>{writableProjects.map(item=><option value={item.id} key={item.id}>{item.code} · {item.name}</option>)}</select><select name="request_id"><option value="">Aucune demande liée</option>{requests.map(item=><option value={item.id} key={item.id}>{item.subject}</option>)}</select><select name="visibility" defaultValue="private"><option value="private">Privé — propriétaire et administrateurs</option><option value="staff">Équipe du projet</option><option value="request">Demandeur et équipe autorisée</option></select><input name="file" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.jpg,.jpeg,.png" required/><small>PDF, Word, Excel, JPG ou PNG — 15 Mo maximum.</small><button disabled={busy}>Déposer dans le coffre</button></form></div><div className="portalPanel"><h2>Coffre documentaire</h2>{documents.length?documents.map(document=><div className="listRow documentRow" key={document.id}><div><b>{document.title}</b><small>{document.file_name||"Fichier"} · {document.project_id?projectNames[document.project_id]:"Personnel"} · {document.size_bytes?`${(document.size_bytes/1024/1024).toFixed(2)} Mo`:"Taille inconnue"}</small></div><button onClick={()=>openDocument(document)}>Ouvrir 60 s</button></div>):<p>Aucun document accessible.</p>}</div></>}
+  </section>;
+}
