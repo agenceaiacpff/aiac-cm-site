@@ -28,6 +28,24 @@ function randomPassword() {
   return `${Array.from(bytes, (value) => value.toString(36)).join("")}Aa1!`;
 }
 
+function escapeHtml(value: unknown) {
+  return String(value ?? "").replace(/[&<>"']/g, (character) => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#039;",
+  })[character] || character);
+}
+
+function validTemporaryPassword(password: string) {
+  return password.length >= 12
+    && /[a-z]/.test(password)
+    && /[A-Z]/.test(password)
+    && /\d/.test(password)
+    && /[^A-Za-z0-9]/.test(password);
+}
+
 Deno.serve(async (request) => {
   const origin = request.headers.get("origin");
   if (request.method === "OPTIONS") return new Response("ok", { headers: cors(origin) });
@@ -62,6 +80,8 @@ Deno.serve(async (request) => {
     create: "accounts.invite",
     verify_email: "accounts.email.verify",
     require_password_reset: "accounts.password_reset.require",
+    set_temporary_password: "accounts.password.manage",
+    delete_account: "accounts.delete",
   };
   const permission = permissionByAction[action];
   if (!permission) return json(origin, { error: "Action inconnue" }, 400);
@@ -152,7 +172,9 @@ Deno.serve(async (request) => {
 
   const targetId = String(payload.target_id || "");
   const reason = String(payload.reason || "").trim();
-  if (!targetId || reason.length < 5) return json(origin, { error: "Compte cible et motif détaillé obligatoires" }, 400);
+  if (!/^[0-9a-f-]{36}$/i.test(targetId) || reason.length < 5) {
+    return json(origin, { error: "Compte cible et motif détaillé obligatoires" }, 400);
+  }
 
   if (action === "verify_email") {
     const { error } = await service.auth.admin.updateUserById(targetId, { email_confirm: true });
@@ -162,11 +184,123 @@ Deno.serve(async (request) => {
     return json(origin, { ok: true, message: "Adresse électronique vérifiée" });
   }
 
-  const profile = await service.from("profiles").select("email").eq("id", targetId).single();
+  const profile = await service.from("profiles").select("email,full_name,role,status").eq("id", targetId).single();
   if (profile.error || !profile.data?.email) return json(origin, { error: "Compte ou adresse électronique introuvable" }, 404);
+
+  if (action === "set_temporary_password") {
+    if (targetId === actorId) return json(origin, { error: "Modifiez votre propre mot de passe depuis votre profil" }, 400);
+    const password = String(payload.password || "");
+    if (!validTemporaryPassword(password)) {
+      return json(origin, { error: "Le mot de passe temporaire doit contenir au moins 12 caractères, avec minuscule, majuscule, chiffre et caractère spécial" }, 400);
+    }
+    const required = await userClient.rpc("require_password_reset", { target_id: targetId, reason });
+    if (required.error) return json(origin, { error: required.error.message }, 400);
+    const updated = await service.auth.admin.updateUserById(targetId, { password });
+    if (updated.error) return json(origin, { error: updated.error.message }, 400);
+    await service.from("admin_account_actions").insert({
+      target_profile_id: targetId,
+      actor_id: actorId,
+      action: "set_temporary_password",
+      reason,
+      details: { sessions_revoked: true, change_required_at_next_login: true },
+    });
+    await service.from("audit_logs").insert({
+      actor_id: actorId,
+      action: "account.temporary_password_set",
+      entity_type: "profile",
+      entity_id: targetId,
+      details: { reason, sessions_revoked: true, password_recorded: false },
+    });
+    return json(origin, { ok: true, message: "Mot de passe temporaire défini. Toutes les sessions sont révoquées et l’utilisateur devra choisir son propre mot de passe à la prochaine connexion." });
+  }
+
+  if (action === "delete_account") {
+    if (targetId === actorId) return json(origin, { error: "Vous ne pouvez pas supprimer votre propre compte" }, 400);
+    if (reason.length < 10) return json(origin, { error: "Le motif de suppression doit contenir au moins 10 caractères" }, 400);
+    const confirmation = String(payload.confirmation || "").trim().toLowerCase();
+    if (confirmation !== profile.data.email.toLowerCase()) {
+      return json(origin, { error: "Recopiez exactement l’adresse électronique du compte pour confirmer la suppression" }, 400);
+    }
+    if (profile.data.role === "super_admin") {
+      const remaining = await service.from("profiles").select("id", { count: "exact", head: true })
+        .eq("role", "super_admin").eq("status", "active").neq("id", targetId);
+      if (remaining.error || (remaining.count || 0) < 1) {
+        return json(origin, { error: "Le dernier super-administrateur actif ne peut pas être supprimé" }, 400);
+      }
+    }
+
+    const destructiveReferences = [
+      { table: "messages", column: "sender_id", label: "messages" },
+      { table: "requests", column: "created_by", label: "demandes" },
+      { table: "tasks", column: "created_by", label: "tâches" },
+      { table: "conversations", column: "created_by", label: "conversations" },
+      { table: "documents", column: "owner_id", label: "documents" },
+    ];
+    const blockerChecks = await Promise.all(destructiveReferences.map(async (reference) => {
+      const result = await service.from(reference.table).select("id", { count: "exact", head: true }).eq(reference.column, targetId);
+      return { ...reference, count: result.count || 0, error: result.error };
+    }));
+    const blockerError = blockerChecks.find((item) => item.error)?.error;
+    if (blockerError) return json(origin, { error: blockerError.message }, 500);
+    const blockers = blockerChecks.filter((item) => item.count > 0).map((item) => `${item.count} ${item.label}`);
+    if (blockers.length) {
+      return json(origin, { error: `Suppression bloquée pour préserver les données institutionnelles : ${blockers.join(", ")}. Suspendez plutôt le compte ou transférez d’abord ces éléments.` }, 409);
+    }
+
+    const revoked = await userClient.rpc("revoke_user_sessions", { target_id: targetId, reason: `Suppression du compte : ${reason}` });
+    if (revoked.error) return json(origin, { error: revoked.error.message }, 400);
+    const actionLog = await service.from("admin_account_actions").insert({
+      target_profile_id: targetId,
+      actor_id: actorId,
+      action: "delete_account",
+      reason,
+      details: { email: profile.data.email, full_name: profile.data.full_name, role: profile.data.role, status: "requested" },
+    }).select("id").single();
+    if (actionLog.error || !actionLog.data) return json(origin, { error: actionLog.error?.message || "Journalisation impossible" }, 500);
+    await service.from("audit_logs").insert({
+      actor_id: actorId,
+      action: "account.deletion_requested",
+      entity_type: "profile",
+      entity_id: targetId,
+      details: { reason, email: profile.data.email, full_name: profile.data.full_name, role: profile.data.role },
+    });
+    const removed = await service.auth.admin.deleteUser(targetId);
+    if (removed.error) {
+      await service.from("admin_account_actions").update({ details: { email: profile.data.email, full_name: profile.data.full_name, role: profile.data.role, status: "failed", error: removed.error.message } }).eq("id", actionLog.data.id);
+      return json(origin, { error: `Suppression impossible : ${removed.error.message}. Les sessions ont néanmoins été révoquées.` }, 409);
+    }
+    await service.from("admin_account_actions").update({ details: { email: profile.data.email, full_name: profile.data.full_name, role: profile.data.role, status: "deleted" } }).eq("id", actionLog.data.id);
+    return json(origin, { ok: true, deleted: true, message: "Compte supprimé définitivement. La trace administrative de l’opération est conservée." });
+  }
+
   const required = await userClient.rpc("require_password_reset", { target_id: targetId, reason });
   if (required.error) return json(origin, { error: required.error.message }, 400);
-  const recovery = await service.auth.resetPasswordForEmail(profile.data.email, { redirectTo });
-  if (recovery.error) return json(origin, { error: `Réinitialisation imposée, mais e-mail non envoyé : ${recovery.error.message}` }, 502);
-  return json(origin, { ok: true, message: "Sessions révoquées et e-mail de réinitialisation envoyé" });
+  const recovery = await service.auth.admin.generateLink({
+    type: "recovery",
+    email: profile.data.email,
+    options: { redirectTo },
+  });
+  const recoveryLink = recovery.data?.properties?.action_link;
+  if (recovery.error || !recoveryLink) {
+    return json(origin, { error: `Réinitialisation imposée, mais lien non généré : ${recovery.error?.message || "lien indisponible"}` }, 502);
+  }
+  const resendKey = Deno.env.get("RESEND_API_KEY");
+  if (!resendKey) return json(origin, { error: "Réinitialisation imposée, mais le service d’e-mail AIAC n’est pas configuré" }, 502);
+  const from = Deno.env.get("AIAC_EMAIL_FROM") || "AIAC <reunions@notifications.aiac-cm.org>";
+  const recipientName = profile.data.full_name || profile.data.email;
+  const emailResponse = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      from,
+      to: [profile.data.email],
+      subject: "Réinitialisation de votre mot de passe — Portail AIAC",
+      html: `<!doctype html><html lang="fr"><body style="background:#f1f5f9;font-family:Arial,sans-serif;margin:0;padding:24px"><main style="background:#fff;border-radius:14px;margin:auto;max-width:640px;padding:28px"><p style="color:#0369a1;font-size:12px;font-weight:700;text-transform:uppercase">Sécurité du portail AIAC</p><h1 style="color:#0f172a">Choisissez un nouveau mot de passe</h1><p>Bonjour ${escapeHtml(recipientName)},</p><p>Un super-administrateur de l’AIAC a demandé la réinitialisation sécurisée de votre mot de passe.</p><p style="margin:24px 0"><a href="${escapeHtml(recoveryLink)}" style="background:#047857;border-radius:8px;color:#fff;display:inline-block;font-weight:700;padding:12px 18px;text-decoration:none">Définir mon nouveau mot de passe</a></p><p>Ce lien est personnel et utilisable une seule fois. Si vous l’avez déjà ouvert, demandez un nouveau lien.</p><p style="color:#64748b;font-size:12px">Message automatique du portail AIAC.</p></main></body></html>`,
+    }),
+  });
+  if (!emailResponse.ok) {
+    const detail = await emailResponse.text();
+    return json(origin, { error: `Réinitialisation imposée, mais e-mail AIAC non envoyé : ${detail.slice(0, 500)}` }, 502);
+  }
+  return json(origin, { ok: true, message: "Sessions révoquées et nouveau lien de réinitialisation envoyé par le service de courriel AIAC" });
 });
