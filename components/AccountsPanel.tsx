@@ -14,6 +14,7 @@ export type AccountProfile = {
   status: string;
   phone: string | null;
   organization: string | null;
+  avatar_url: string | null;
   registration_state: string;
   validated_at: string | null;
   validated_by: string | null;
