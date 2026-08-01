@@ -1,0 +1,11 @@
+.profileGrid{display:grid;gap:1.25rem}
+.avatarCard{display:flex;align-items:center;gap:1.25rem;padding:1rem;border:1px solid #d9e4dc;border-radius:16px;background:#f8fbf9}
+.avatarPreview,.avatarFallback{width:112px;height:112px;flex:0 0 112px;border-radius:50%;object-fit:cover;border:4px solid #fff;box-shadow:0 5px 18px rgba(20,75,47,.15)}
+.avatarFallback{display:grid;place-items:center;background:#176b43;color:#fff;font-size:2.5rem;font-weight:800}
+.avatarCard h3{margin:0 0 .25rem}.avatarCard p{margin:.1rem 0 .75rem;color:#5c6e63}
+.avatarForm{display:flex;align-items:center;flex-wrap:wrap;gap:.7rem}.avatarForm input{max-width:100%}
+.avatarForm button,.removeButton{border:0;border-radius:9px;padding:.7rem 1rem;font-weight:700;cursor:pointer}
+.avatarForm button{background:#176b43;color:#fff}.removeButton{margin-top:.6rem;background:#f5e8e8;color:#8b2727}
+.avatarForm button:disabled,.removeButton:disabled{cursor:wait;opacity:.65}
+.sidebarAvatar{width:42px;height:42px;flex:0 0 42px;border-radius:50%;object-fit:cover;border:2px solid rgba(255,255,255,.7)}
+@media(max-width:640px){.avatarCard{align-items:flex-start;flex-direction:column}.avatarPreview,.avatarFallback{width:92px;height:92px;flex-basis:92px}}
