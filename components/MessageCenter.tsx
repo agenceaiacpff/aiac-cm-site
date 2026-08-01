@@ -59,7 +59,7 @@ export default function MessageCenter({profile,initialConversations,initialActiv
     const [{data:messageRows},{data:memberRows},{data:attachmentRows}]=await Promise.all([
       supabase.from("messages").select("id,conversation_id,sender_id,body,created_at").eq("conversation_id",id).order("created_at"),
       supabase.from("conversation_members").select("conversation_id,user_id,member_role,joined_at").eq("conversation_id",id).order("joined_at"),
-      supabase.from("message_attachments").select("message_id,document_id,documents(id,title,file_name)").in("message_id",(await supabase.from("messages").select("id").eq("conversation_id",id)).data?.map(row=>row.id)||[])
+      supabase.from("message_attachments").select("message_id,document_id,documents(id,title,file_name)").in("message_id",(await supabase.from("messages").select("id").eq("conversation_id",id)).data?.map((row:{id:string})=>row.id)||[])
     ]);
     setMessages((messageRows||[]) as Message[]);
     setMembers((memberRows||[]) as Member[]);
