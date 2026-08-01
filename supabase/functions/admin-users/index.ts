@@ -193,10 +193,12 @@ Deno.serve(async (request) => {
     if (!validTemporaryPassword(password)) {
       return json(origin, { error: "Le mot de passe temporaire doit contenir au moins 12 caractères, avec minuscule, majuscule, chiffre et caractère spécial" }, 400);
     }
-    const required = await userClient.rpc("require_password_reset", { target_id: targetId, reason });
-    if (required.error) return json(origin, { error: required.error.message }, 400);
     const updated = await service.auth.admin.updateUserById(targetId, { password });
     if (updated.error) return json(origin, { error: updated.error.message }, 400);
+    // La synchronisation Auth remet d'abord l'indicateur à zéro lors du changement réel.
+    // L'exigence administrative doit donc être posée après le mot de passe temporaire.
+    const required = await userClient.rpc("require_password_reset", { target_id: targetId, reason });
+    if (required.error) return json(origin, { error: `Mot de passe temporaire défini, mais changement obligatoire non enregistré : ${required.error.message}` }, 500);
     await service.from("admin_account_actions").insert({
       target_profile_id: targetId,
       actor_id: actorId,
