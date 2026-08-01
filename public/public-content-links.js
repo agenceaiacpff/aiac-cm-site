@@ -16,6 +16,44 @@
     "videos.html": "videos", "livre-dor.html": "livre-dor"
   };
 
+  function initializeResponsiveMenus() {
+    document.querySelectorAll("button.burger, #burger, [data-menu-toggle]").forEach(function (button) {
+      if (button.dataset.aiacMenuReady === "true") return;
+
+      var controlledId = button.getAttribute("aria-controls");
+      var menu = controlledId ? document.getElementById(controlledId) : null;
+      if (!menu) menu = document.getElementById("links");
+      if (!menu) {
+        var navigationArea = button.closest(".topbar, .nav, header") || document;
+        menu = navigationArea.querySelector(".links, .nav-links, nav");
+      }
+      if (!menu) return;
+
+      if (!menu.id) menu.id = "aiac-menu-" + Math.random().toString(36).slice(2, 9);
+      button.dataset.aiacMenuReady = "true";
+      button.setAttribute("aria-controls", menu.id);
+      button.setAttribute("aria-expanded", menu.classList.contains("open") ? "true" : "false");
+
+      function closeMenu() {
+        menu.classList.remove("open");
+        button.setAttribute("aria-expanded", "false");
+      }
+
+      button.addEventListener("click", function () {
+        var isOpen = menu.classList.toggle("open");
+        button.setAttribute("aria-expanded", isOpen ? "true" : "false");
+      });
+      menu.querySelectorAll("a").forEach(function (link) {
+        link.addEventListener("click", closeMenu);
+      });
+      document.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") closeMenu();
+      });
+    });
+  }
+
+  initializeResponsiveMenus();
+
   Object.keys(legacy).forEach(function (file) {
     document.querySelectorAll('a[href$="autres/' + file + '"],a[href$="' + file + '"]').forEach(function (link) {
       link.href = "/publications/" + legacy[file];
@@ -27,7 +65,7 @@
   if (organKey) {
     var organCode = organs[organKey];
     var style = document.createElement("style");
-    style.textContent = ".aiac-publications-bar{background:#ecfeff;border-bottom:1px solid #99f6e4;font-family:Arial,sans-serif;padding:14px 18px}.aiac-publications-bar>div{align-items:center;display:flex;gap:8px;max-width:1180px;margin:auto;overflow-x:auto}.aiac-publications-bar b{color:#115e59;margin-right:8px;white-space:nowrap}.aiac-publications-bar a{background:#fff;border:1px solid #99f6e4;border-radius:999px;color:#0f766e;font-size:12px;font-weight:800;padding:8px 11px;text-decoration:none;white-space:nowrap}.aiac-publications-bar a:hover{background:#0f766e;color:#fff}";
+    style.textContent = ".aiac-publications-bar{background:#ecfeff;border-bottom:1px solid #99f6e4;box-sizing:border-box;font-family:Arial,sans-serif;overflow:hidden;padding:12px clamp(8px,3vw,18px);width:100%}.aiac-publications-bar *{box-sizing:border-box}.aiac-publications-bar>div{align-items:center;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-width:1180px;margin:auto;overflow:visible;width:100%}.aiac-publications-bar b{color:#115e59;flex:1 0 100%;margin:0 0 3px;text-align:center;white-space:normal}.aiac-publications-bar a{background:#fff;border:1px solid #99f6e4;border-radius:999px;color:#0f766e;display:inline-flex;font-size:12px;font-weight:800;justify-content:center;max-width:100%;padding:8px 11px;text-align:center;text-decoration:none;white-space:nowrap}.aiac-publications-bar a:hover{background:#0f766e;color:#fff}@media(min-width:1000px){.aiac-publications-bar b{flex:0 0 auto;margin:0 8px 0 0;text-align:left}}";
     document.head.appendChild(style);
     var bar = document.createElement("nav");
     bar.className = "aiac-publications-bar";
