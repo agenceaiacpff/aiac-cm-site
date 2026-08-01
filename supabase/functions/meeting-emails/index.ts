@@ -14,7 +14,12 @@ Deno.serve(async(request)=>{
   const origin=request.headers.get("origin");
   if(request.method==="OPTIONS")return new Response("ok",{headers:cors(origin)});
   if(request.method!=="POST")return json(origin,{error:"Méthode non autorisée"},405);
-  const supabaseUrl=Deno.env.get("SUPABASE_URL");const anonKey=Deno.env.get("SUPABASE_ANON_KEY");const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");const authorization=request.headers.get("Authorization");
+  const supabaseUrl=Deno.env.get("SUPABASE_URL");
+  const publishableKeys=JSON.parse(Deno.env.get("SUPABASE_PUBLISHABLE_KEYS")||"{}");
+  const secretKeys=JSON.parse(Deno.env.get("SUPABASE_SECRET_KEYS")||"{}");
+  const anonKey=Deno.env.get("SUPABASE_ANON_KEY")||publishableKeys.default;
+  const serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||secretKeys.default;
+  const authorization=request.headers.get("Authorization");
   if(!supabaseUrl||!anonKey||!serviceKey||!authorization)return json(origin,{error:"Configuration ou authentification manquante"},401);
   const userClient=createClient(supabaseUrl,anonKey,{global:{headers:{Authorization:authorization}},auth:{persistSession:false}});
   const service=createClient(supabaseUrl,serviceKey,{auth:{persistSession:false}});
