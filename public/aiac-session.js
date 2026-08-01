@@ -20,6 +20,17 @@
   ].join("");
   document.head.appendChild(style);
 
+  var contactFormReady = Promise.resolve();
+  if (document.getElementById("contactForm")) {
+    contactFormReady = new Promise(function (resolve) {
+      var contactScript = document.createElement("script");
+      contactScript.src = "/nouveau-site/contact-form.js";
+      contactScript.onload = resolve;
+      contactScript.onerror = resolve;
+      document.head.appendChild(contactScript);
+    });
+  }
+
   function escapeHtml(value) {
     return String(value || "").replace(/[&<>\"']/g, function (character) {
       return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#039;" }[character];
@@ -28,9 +39,9 @@
 
   function fillIdentity(profile) {
     document.querySelectorAll("form#contactForm").forEach(function (form) {
-      var name = form.querySelector('[name="name"]');
+      var name = form.querySelector('[name="full_name"], [name="name"], [name="nom"]');
       var email = form.querySelector('[name="email"]');
-      var phone = form.querySelector('[name="phone"]');
+      var phone = form.querySelector('[name="phone"], [name="tel"]');
       if (name) { name.value = profile.fullName; name.readOnly = true; }
       if (email) { email.value = profile.email; email.readOnly = true; }
       if (phone && !phone.value && profile.phone) phone.value = profile.phone;
@@ -70,6 +81,12 @@
 
   fetch("/api/session", { credentials: "same-origin", cache: "no-store" })
     .then(function (response) { return response.ok ? response.json() : { authenticated: false }; })
-    .then(function (data) { data.authenticated ? renderAuthenticated(data) : renderAnonymous(); })
+    .then(function (data) {
+      if (data.authenticated) {
+        contactFormReady.then(function () { renderAuthenticated(data); });
+      } else {
+        renderAnonymous();
+      }
+    })
     .catch(renderAnonymous);
 })();
