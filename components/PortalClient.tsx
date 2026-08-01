@@ -12,10 +12,12 @@ import InstitutionalPanel, { ActivityReportRow, ActivityRow, BodyMembershipRow, 
 import MessageCenter, { ConversationRow, MessageRecipient } from "@/components/MessageCenter";
 import DocumentVault, { DocumentApprovalRow, DocumentFolderRow, DocumentGrantRow, DocumentVersionRow, SecureDocumentRow } from "@/components/DocumentVault";
 import AuditCenter, { AuditLogRow, DocumentAccessLogRow, SessionActivityRow } from "@/components/AuditCenter";
+import PublicContentPanel from "@/components/PublicContentPanel";
+import type { GuestbookEntry, PublicContentItem, PublicContentMedia } from "@/lib/public-content";
 
 type UnreadMessageCountRow={conversation_id:string;unread_count:number};
 type RealtimePayload={new:unknown};
-const portalTabs=["accueil","annonces","notifications","demandes","messages","documents","operations","institution","administration","audit","profil"];
+const portalTabs=["accueil","annonces","notifications","demandes","messages","documents","operations","institution","contenus","administration","audit","profil"];
 
 function countLabel(count:number){return count>99?"99+":String(count);}
 
@@ -28,6 +30,7 @@ export default function PortalClient({
   initialPositionDefinitions,initialPositionAssignments,initialAccountReviews,messageRecipients,
   initialDocumentFolders,initialDocumentVersions,initialDocumentApprovals,initialDocumentGrants,initialSessionActivity,initialDocumentAccessLogs,
   initialPermissions,initialPermissionOverrides,initialAccountScopes,initialInterventions,
+  initialPublicContent,initialPublicMedia,initialGuestbookEntries,manageablePublicBodyIds,
 }:{
   profile:AccountProfile;initialRequests:RequestRow[];initialConversations:ConversationRow[];initialNotifications:NotificationRow[];initialUnreadMessageCounts:UnreadMessageCountRow[];
   staffProfiles:AccountProfile[];initialAuditLogs:AuditLogRow[];initialProjects:ProjectRow[];initialProjectMembers:ProjectMemberRow[];
@@ -38,6 +41,7 @@ export default function PortalClient({
   initialPositionDefinitions:PositionDefinitionRow[];initialPositionAssignments:PositionAssignmentRow[];initialAccountReviews:AccountReviewRow[];messageRecipients:MessageRecipient[];
   initialDocumentFolders:DocumentFolderRow[];initialDocumentVersions:DocumentVersionRow[];initialDocumentApprovals:DocumentApprovalRow[];initialDocumentGrants:DocumentGrantRow[];initialSessionActivity:SessionActivityRow[];initialDocumentAccessLogs:DocumentAccessLogRow[];
   initialPermissions:PermissionRow[];initialPermissionOverrides:PermissionOverrideRow[];initialAccountScopes:AccountScopeRow[];initialInterventions:InterventionRow[];
+  initialPublicContent:PublicContentItem[];initialPublicMedia:PublicContentMedia[];initialGuestbookEntries:GuestbookEntry[];manageablePublicBodyIds:string[];
 }){
   const supabase=useMemo(()=>createClient(),[]);
   const router=useRouter();
@@ -95,7 +99,7 @@ export default function PortalClient({
   async function updateProfile(event:FormEvent<HTMLFormElement>){event.preventDefault();const data=new FormData(event.currentTarget);const {error}=await supabase.from("profiles").update({full_name:data.get("full_name"),phone:data.get("phone"),organization:data.get("organization")}).eq("id",profile.id);setNotice(error?error.message:"Profil mis à jour.");}
   async function logout(){await supabase.auth.signOut();router.push("/connexion");router.refresh();}
 
-  const navItems=[["accueil","Tableau de bord"],["demandes","Mes demandes"],["messages","Messagerie"],["notifications","Notifications"],["annonces","Annonces"],["profil","Mon profil"],...(isStaff?[["documents","Documents sécurisés"],["operations","Gestion opérationnelle"],["institution","Gestion institutionnelle"]]:[]),...(isAdmin?[["administration","Administration"]]:[]),...(isSuperAdmin?[["audit","Journal d’audit"]]:[])];
+  const navItems=[["accueil","Tableau de bord"],["demandes","Mes demandes"],["messages","Messagerie"],["notifications","Notifications"],["annonces","Annonces"],["profil","Mon profil"],...(isStaff?[["documents","Documents sécurisés"],["operations","Gestion opérationnelle"],["institution","Gestion institutionnelle"],["contenus","Publications du site"]]:[]),...(isAdmin?[["administration","Administration"]]:[]),...(isSuperAdmin?[["audit","Journal d’audit"]]:[])];
   const navCounts:Record<string,number>={messages:unreadMessages,notifications:unreadNotifications,annonces:unreadAnnouncements};
 
   return <div className="portalShell">
@@ -111,6 +115,7 @@ export default function PortalClient({
       {tab==="profil"&&<section className="portalPanel"><h2>Mon profil</h2><form className="inlineForm" onSubmit={updateProfile}><label>Nom complet<input name="full_name" defaultValue={profile.full_name||""} required/></label><label>E-mail<input value={profile.email||""} disabled/></label><label>Téléphone<input name="phone" defaultValue={profile.phone||""}/></label><label>Organisation<input name="organization" defaultValue={profile.organization||""}/></label><button>Enregistrer</button></form>{isAdmin&&<div className="securityBox"><h3>Sécurité renforcée active</h3><p>Les actions administratives sensibles exigent une session MFA de niveau AAL2.</p><a href="/mfa">Vérifier mon authentification</a></div>}</section>}
       {tab==="operations"&&isStaff&&<OperationsPanel profile={profile} initialProjects={initialProjects} initialPrograms={initialPrograms} initialMembers={initialProjectMembers} initialTasks={initialTasks} initialDocuments={initialDocuments} initialBeneficiaries={initialBeneficiaries} initialRequests={requests} initialRequestEvents={initialRequestEvents} initialTaskEvents={initialTaskEvents} initialInterventions={initialInterventions} staffProfiles={staffProfiles} bodies={initialBodies}/>}
       {tab==="institution"&&isStaff&&<InstitutionalPanel profile={profile} staffProfiles={staffProfiles} projects={initialProjects} projectMembers={initialProjectMembers} beneficiaries={initialBeneficiaries} initialBodies={initialBodies} initialInstitutionalMembers={initialInstitutionalMembers} initialBodyMemberships={initialBodyMemberships} initialWorkforceAssignments={initialWorkforceAssignments} initialPrograms={initialPrograms} initialPartners={initialPartners} initialPartnerships={initialPartnerships} initialCaseFiles={initialCaseFiles} initialCaseNotes={initialCaseNotes} initialCaseActions={initialCaseActions} initialActivities={initialActivities} initialActivityReports={initialActivityReports}/>}
+      {tab==="contenus"&&isStaff&&<PublicContentPanel profileId={profile.id} bodies={initialBodies.filter(body=>manageablePublicBodyIds.includes(body.id))} initialItems={initialPublicContent} initialMedia={initialPublicMedia} initialGuestbook={initialGuestbookEntries} projects={initialProjects} programs={initialPrograms} partnerships={initialPartnerships}/>}
       {tab==="administration"&&isAdmin&&<AccountsPanel currentProfile={profile} initialProfiles={staffProfiles} initialHistory={initialAccountHistory} initialBodies={initialBodies} initialPositions={initialPositionDefinitions} initialPositionAssignments={initialPositionAssignments} initialReviews={initialAccountReviews} initialPermissions={initialPermissions} initialPermissionOverrides={initialPermissionOverrides} initialAccountScopes={initialAccountScopes} initialSessions={initialSessionActivity}/>}
       {tab==="audit"&&isSuperAdmin&&<AuditCenter logs={initialAuditLogs} sessions={initialSessionActivity} documentAccess={initialDocumentAccessLogs} profiles={staffProfiles} documents={initialDocuments}/>}
     </main>

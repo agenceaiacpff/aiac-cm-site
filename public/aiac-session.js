@@ -20,6 +20,12 @@
   ].join("");
   document.head.appendChild(style);
 
+  if (!document.querySelector('script[src="/public-content-links.js"]')) {
+    var publicContentScript = document.createElement("script");
+    publicContentScript.src = "/public-content-links.js";
+    document.head.appendChild(publicContentScript);
+  }
+
   var contactFormReady = Promise.resolve();
   if (document.getElementById("contactForm")) {
     contactFormReady = new Promise(function (resolve) {
