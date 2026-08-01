@@ -15,7 +15,7 @@ import AuditCenter, { AuditLogRow, DocumentAccessLogRow, SessionActivityRow } fr
 import PublicContentPanel from "@/components/PublicContentPanel";
 import type { GuestbookEntry, PublicContentItem, PublicContentMedia } from "@/lib/public-content";
 import profileStyles from "@/components/PortalProfile.module.css";
-import MeetingsPanel, { MeetingDirectoryEntry, MeetingGuestRow, MeetingParticipantRow, MeetingRow } from "@/components/MeetingsPanel";
+import MeetingsPanel, { MeetingBodyEntry, MeetingDirectoryEntry, MeetingGuestRow, MeetingParticipantRow, MeetingProjectEntry, MeetingRow } from "@/components/MeetingsPanel";
 
 type UnreadMessageCountRow={conversation_id:string;unread_count:number};
 type RealtimePayload={new:unknown};
@@ -33,7 +33,7 @@ export default function PortalClient({
   initialDocumentFolders,initialDocumentVersions,initialDocumentApprovals,initialDocumentGrants,initialSessionActivity,initialDocumentAccessLogs,
   initialPermissions,initialPermissionOverrides,initialAccountScopes,initialInterventions,
   initialPublicContent,initialPublicMedia,initialGuestbookEntries,manageablePublicBodyIds,
-  initialMeetings,initialMeetingParticipants,initialMeetingGuests,meetingRecipients,
+  initialMeetings,initialMeetingParticipants,initialMeetingGuests,meetingRecipients,meetingBodies,meetingProjects,
 }:{
   profile:AccountProfile;initialRequests:RequestRow[];initialConversations:ConversationRow[];initialNotifications:NotificationRow[];initialUnreadMessageCounts:UnreadMessageCountRow[];
   staffProfiles:AccountProfile[];initialAuditLogs:AuditLogRow[];initialProjects:ProjectRow[];initialProjectMembers:ProjectMemberRow[];
@@ -45,7 +45,7 @@ export default function PortalClient({
   initialDocumentFolders:DocumentFolderRow[];initialDocumentVersions:DocumentVersionRow[];initialDocumentApprovals:DocumentApprovalRow[];initialDocumentGrants:DocumentGrantRow[];initialSessionActivity:SessionActivityRow[];initialDocumentAccessLogs:DocumentAccessLogRow[];
   initialPermissions:PermissionRow[];initialPermissionOverrides:PermissionOverrideRow[];initialAccountScopes:AccountScopeRow[];initialInterventions:InterventionRow[];
   initialPublicContent:PublicContentItem[];initialPublicMedia:PublicContentMedia[];initialGuestbookEntries:GuestbookEntry[];manageablePublicBodyIds:string[];
-  initialMeetings:MeetingRow[];initialMeetingParticipants:MeetingParticipantRow[];initialMeetingGuests:MeetingGuestRow[];meetingRecipients:MeetingDirectoryEntry[];
+  initialMeetings:MeetingRow[];initialMeetingParticipants:MeetingParticipantRow[];initialMeetingGuests:MeetingGuestRow[];meetingRecipients:MeetingDirectoryEntry[];meetingBodies:MeetingBodyEntry[];meetingProjects:MeetingProjectEntry[];
 }){
   const supabase=useMemo(()=>createClient(),[]);
   const router=useRouter();
@@ -56,6 +56,8 @@ export default function PortalClient({
   const [unreadMessageCounts,setUnreadMessageCounts]=useState<Record<string,number>>(()=>Object.fromEntries(initialUnreadMessageCounts.map(item=>[item.conversation_id,Number(item.unread_count)])));
   const [requestedConversationId,setRequestedConversationId]=useState<string|null>(null);
   const [requestedMeetingId,setRequestedMeetingId]=useState<string|null>(null);
+  const [meetingOverview,setMeetingOverview]=useState(initialMeetings);
+  const [meetingInvitationOverview,setMeetingInvitationOverview]=useState(initialMeetingParticipants);
   const [realtimeConnected,setRealtimeConnected]=useState(false);
   const [notice,setNotice]=useState("");
   const [avatarUrl,setAvatarUrl]=useState(profile.avatar_url||"");
@@ -68,6 +70,7 @@ export default function PortalClient({
     const {data,error}=await supabase.rpc("get_unread_message_counts");
     if(!error&&data)setUnreadMessageCounts(Object.fromEntries((data as UnreadMessageCountRow[]).map(item=>[item.conversation_id,Number(item.unread_count)])));
   },[supabase]);
+  const refreshMeetingOverview=useCallback(async()=>{const [{data:meetingRows},{data:participantRows}]=await Promise.all([supabase.from("meetings").select("*").order("starts_at"),supabase.from("meeting_participants").select("*")]);if(meetingRows)setMeetingOverview(meetingRows as MeetingRow[]);if(participantRows)setMeetingInvitationOverview(participantRows as MeetingParticipantRow[]);},[supabase]);
 
   useEffect(()=>{const params=new URLSearchParams(window.location.search);const requested=params.get("tab");if(requested&&portalTabs.includes(requested))setTab(requested);setRequestedConversationId(params.get("conversation"));setRequestedMeetingId(params.get("meeting"));},[]);
   useEffect(()=>{
@@ -92,15 +95,17 @@ export default function PortalClient({
         const incoming=payload.new as ConversationRow;
         setConversations(items=>items.some(item=>item.id===incoming.id)?items.map(item=>item.id===incoming.id?incoming:item):[incoming,...items]);
       })
+      .on("postgres_changes",{event:"*",schema:"public",table:"meetings"},()=>{void refreshMeetingOverview();})
+      .on("postgres_changes",{event:"*",schema:"public",table:"meeting_participants"},()=>{void refreshMeetingOverview();})
       .subscribe((status:string)=>setRealtimeConnected(status==="SUBSCRIBED"));
     return()=>{void supabase.removeChannel(channel);};
-  },[profile.id,refreshUnreadMessageCounts,supabase]);
+  },[profile.id,refreshMeetingOverview,refreshUnreadMessageCounts,supabase]);
 
   const unreadNotifications=notifications.filter(item=>!item.read_at).length;
   const unreadMessages=Object.values(unreadMessageCounts).reduce((total,count)=>total+count,0);
   const unreadAnnouncements=initialAnnouncements.filter(item=>item.status==="published"&&!initialAnnouncementReadIds.includes(item.id)).length;
-  const pendingMeetingInvitations=initialMeetingParticipants.filter(item=>item.user_id===profile.id&&item.response_status==="pending").length;
-  const upcomingMeetings=initialMeetings.filter(item=>new Date(item.ends_at).getTime()>=Date.now()&&!['cancelled','archived'].includes(item.status)).length;
+  const pendingMeetingInvitations=meetingInvitationOverview.filter(item=>item.user_id===profile.id&&item.response_status==="pending").length;
+  const upcomingMeetings=meetingOverview.filter(item=>new Date(item.ends_at).getTime()>=Date.now()&&!['cancelled','archived'].includes(item.status)).length;
   useEffect(()=>{document.title=unreadNotifications+unreadMessages>0?`(${unreadNotifications+unreadMessages}) Portail AIAC`:"Portail AIAC";},[unreadMessages,unreadNotifications]);
 
   function mergeConversation(incoming:ConversationRow){setConversations(items=>items.some(item=>item.id===incoming.id)?items.map(item=>item.id===incoming.id?incoming:item):[incoming,...items]);}
@@ -131,7 +136,7 @@ export default function PortalClient({
     <main className="portalMain"><header><div><p className="eyebrow">{roleLabels[profile.role]||profile.role}</p><h1>Bonjour, {profile.full_name||"membre AIAC"}</h1></div><div className="portalHeaderStatus"><span className={`realtimeStatus ${realtimeConnected?"connected":"connecting"}`}>{realtimeConnected?"● Synchronisation en direct":"● Reconnexion…"}</span><span className={`status ${profile.status}`}>{profile.status==="active"?"Compte actif":profile.status==="suspended"?"Compte suspendu":"Validation en attente"}</span></div></header>
       {notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
       {tab==="accueil"&&<section><div className="statGrid"><article><b>{requests.length}</b><span>Demandes</span></article><article><b>{conversations.length}</b><span>Conversations</span></article><article><b>{upcomingMeetings}</b><span>Réunions à venir</span></article><article><b>{unreadNotifications}</b><span>Notifications non lues</span></article><article><b>{unreadMessages}</b><span>Messages non lus</span></article><article><b>{unreadAnnouncements}</b><span>Annonces à lire</span></article></div><div className="portalPanel"><h2>Bienvenue dans votre espace AIAC</h2><p>Soumettez et suivez vos demandes, échangez avec l’équipe, organisez vos réunions, consultez les annonces et gérez votre profil depuis cet espace sécurisé.</p></div></section>}
-      {tab==="reunions"&&<MeetingsPanel profile={profile} initialMeetings={initialMeetings} initialParticipants={initialMeetingParticipants} initialGuests={initialMeetingGuests} recipients={meetingRecipients} bodies={initialBodies} projects={initialProjects} initialSelectedId={requestedMeetingId}/>}
+      {tab==="reunions"&&<MeetingsPanel profile={profile} initialMeetings={meetingOverview} initialParticipants={meetingInvitationOverview} initialGuests={initialMeetingGuests} recipients={meetingRecipients} bodies={meetingBodies} projects={meetingProjects} initialSelectedId={requestedMeetingId}/>}
       {tab==="demandes"&&<RequestsPanel profileId={profile.id} requests={requests} setRequests={setRequests} initialEvents={initialRequestEvents}/>}
       {tab==="messages"&&<MessageCenter profile={profile} initialConversations={conversations} initialActiveId={requestedConversationId} unreadCounts={unreadMessageCounts} onConversationRead={refreshUnreadMessageCounts} onConversationChange={mergeConversation} recipients={messageRecipients} bodies={initialBodies}/>}
       {tab==="documents"&&isStaff&&<DocumentVault profile={profile} staffProfiles={staffProfiles} initialDocuments={initialDocuments} initialFolders={initialDocumentFolders} initialVersions={initialDocumentVersions} initialApprovals={initialDocumentApprovals} initialGrants={initialDocumentGrants} bodies={initialBodies} projects={initialProjects} beneficiaries={initialBeneficiaries} cases={initialCaseFiles} partners={initialPartners} activities={initialActivities} members={initialInstitutionalMembers}/>}
