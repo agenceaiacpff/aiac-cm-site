@@ -33,6 +33,7 @@ export default function PublicContentPanel({
   const [busy,setBusy]=useState(false);
   const [filterBody,setFilterBody]=useState("all");
   const [richHtml,setRichHtml]=useState("");
+  const [contentFormat,setContentFormat]=useState<"html"|"html_document">("html");
   const [source,setSource]=useState<Pick<ImportedMetadata,"fileName"|"mimeType">|null>(null);
   const [editorReset,setEditorReset]=useState(0);
   const formRef=useRef<HTMLFormElement>(null);
@@ -41,6 +42,7 @@ export default function PublicContentPanel({
   const updateEditor=useCallback((html:string)=>setRichHtml(html),[]);
   const imported=useCallback((metadata:ImportedMetadata)=>{
     setSource({fileName:metadata.fileName,mimeType:metadata.mimeType});
+    setContentFormat(metadata.contentFormat);
     const form=formRef.current;if(!form)return;
     const title=form.elements.namedItem("title") as HTMLInputElement|null;const summary=form.elements.namedItem("summary") as HTMLTextAreaElement|null;
     if(title&&!title.value)title.value=metadata.title.slice(0,240);
@@ -63,7 +65,7 @@ export default function PublicContentPanel({
     if(richText.length<10){setNotice("Ajoutez au moins dix caractères dans le contenu complet ou importez un fichier.");setBusy(false);return;}
     const payload={
       body_id:bodyId,content_type:type,subtype:String(d.get("subtype")||"").trim()||null,title,slug:makeSlug(title),
-      summary:String(d.get("summary")||"").trim(),content:richHtml,content_format:"html",location:String(d.get("location")||"").trim()||null,
+      summary:String(d.get("summary")||"").trim(),content:richHtml,content_format:contentFormat,location:String(d.get("location")||"").trim()||null,
       activity_date:d.get("activity_date")||null,starts_at:d.get("starts_at")?new Date(String(d.get("starts_at"))).toISOString():null,
       ends_at:d.get("ends_at")?new Date(String(d.get("ends_at"))).toISOString():null,status:String(d.get("status")) as PublicContentStatus,
       project_id:String(d.get("project_id")||"")||null,program_id:String(d.get("program_id")||"")||null,
@@ -86,7 +88,7 @@ export default function PublicContentPanel({
       }
       if(rows.length){const {data:newMedia,error:mediaError}=await supabase.from("public_content_media").insert(rows).select();if(mediaError)throw mediaError;setMedia([...((newMedia||[]) as PublicContentMedia[]),...media]);}
       if(coverPath||documentPath){const {data:updated,error:updateError}=await supabase.from("public_content_items").update({cover_image_path:coverPath,document_path:documentPath}).eq("id",created.id).select().single();if(updateError)throw updateError;setItems([updated as PublicContentItem,...items]);}else setItems([created,...items]);
-      form.reset();setSource(null);setEditorReset(value=>value+1);setView(type);setNotice("Contenu riche enregistré. Les éléments publiés sont immédiatement visibles sur le site officiel et la page de l’organe.");
+      form.reset();setSource(null);setContentFormat("html");setEditorReset(value=>value+1);setView(type);setNotice("Contenu riche enregistré. Les éléments publiés sont immédiatement visibles sur le site officiel et la page de l’organe.");
     }catch(error){setItems([created,...items]);setNotice(`Le contenu est enregistré, mais un média a échoué : ${error instanceof Error?error.message:"erreur inconnue"}`);}
     setBusy(false);
   }
