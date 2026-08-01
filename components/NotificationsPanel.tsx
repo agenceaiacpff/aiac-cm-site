@@ -23,7 +23,7 @@ export default function NotificationsPanel({notifications,setNotifications,onOpe
     const {data,error}=await supabase.from("notifications").update({read_at:readAt}).in("id",ids).select("id,read_at");
     if(error){setNotice(error.message);setBusy(false);return false;}
     if(!data?.length){setNotice("La notification n’a pas pu être marquée comme lue.");setBusy(false);return false;}
-    const updates=new Map(data.map(item=>[item.id,item.read_at]));
+    const updates=new Map<string,string|null>((data as Array<{id:string;read_at:string|null}>).map(item=>[item.id,item.read_at]));
     setNotifications(items=>items.map(item=>updates.has(item.id)?{...item,read_at:updates.get(item.id)||readAt}:item));
     setBusy(false);return true;
   }

@@ -25,7 +25,9 @@ export default function AuthForm({ mode }: { mode: Mode }) {
       if (error) setMessage(error.message);
       else {
         const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
-        router.push(assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2" ? "/mfa" : "/espace");
+        const requestedReturn = new URLSearchParams(window.location.search).get("retour");
+        const safeReturn = requestedReturn?.startsWith("/") && !requestedReturn.startsWith("//") ? requestedReturn : "/espace";
+        router.push(assurance?.nextLevel === "aal2" && assurance.currentLevel !== "aal2" ? "/mfa" : safeReturn);
         router.refresh();
       }
     } else if (mode === "inscription") {

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 type Setup = { factorId: string; qr: string; secret: string };
+type MfaFactor = { id: string; status: string; factor_type?: string };
 
 export default function MfaForm() {
   const supabase = useRef(createClient()).current;
@@ -34,7 +35,7 @@ export default function MfaForm() {
         return;
       }
 
-      const verified = factors.data.totp.find((factor) => factor.status === "verified");
+      const verified = factors.data.totp.find((factor: MfaFactor) => factor.status === "verified");
       if (verified) {
         setVerifiedFactorId(verified.id);
         setMessage("Saisissez le code à 6 chiffres affiché dans votre application d’authentification.");
@@ -46,7 +47,7 @@ export default function MfaForm() {
       // unverified factor. Remove it before starting over, otherwise Supabase
       // rejects the reused friendly name and the user never receives a QR code.
       const incompleteFactors = factors.data.all.filter(
-        (factor) => factor.factor_type === "totp" && factor.status === "unverified"
+        (factor: MfaFactor) => factor.factor_type === "totp" && factor.status === "unverified"
       );
       for (const factor of incompleteFactors) {
         const removal = await supabase.auth.mfa.unenroll({ factorId: factor.id });

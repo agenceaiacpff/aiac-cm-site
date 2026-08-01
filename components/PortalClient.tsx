@@ -14,6 +14,7 @@ import DocumentVault, { DocumentApprovalRow, DocumentFolderRow, DocumentGrantRow
 import AuditCenter, { AuditLogRow, DocumentAccessLogRow, SessionActivityRow } from "@/components/AuditCenter";
 
 type UnreadMessageCountRow={conversation_id:string;unread_count:number};
+type RealtimePayload={new:unknown};
 const portalTabs=["accueil","annonces","notifications","demandes","messages","documents","operations","institution","administration","audit","profil"];
 
 function countLabel(count:number){return count>99?"99+":String(count);}
@@ -60,27 +61,27 @@ export default function PortalClient({
   useEffect(()=>{const params=new URLSearchParams(window.location.search);const requested=params.get("tab");if(requested&&portalTabs.includes(requested))setTab(requested);setRequestedConversationId(params.get("conversation"));},[]);
   useEffect(()=>{
     const channel=supabase.channel(`portal-live:${profile.id}`)
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:`user_id=eq.${profile.id}`},payload=>{
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:`user_id=eq.${profile.id}`},(payload:RealtimePayload)=>{
         const incoming=payload.new as NotificationRow;
         setNotifications(items=>[incoming,...items.filter(item=>item.id!==incoming.id)]);
         setNotice(`Nouvelle notification : ${incoming.title}`);
       })
-      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"notifications",filter:`user_id=eq.${profile.id}`},payload=>{
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"notifications",filter:`user_id=eq.${profile.id}`},(payload:RealtimePayload)=>{
         const incoming=payload.new as NotificationRow;
         setNotifications(items=>items.map(item=>item.id===incoming.id?incoming:item));
       })
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages"},()=>{void refreshUnreadMessageCounts();})
       .on("postgres_changes",{event:"INSERT",schema:"public",table:"message_reads",filter:`user_id=eq.${profile.id}`},()=>{void refreshUnreadMessageCounts();})
       .on("postgres_changes",{event:"UPDATE",schema:"public",table:"message_reads",filter:`user_id=eq.${profile.id}`},()=>{void refreshUnreadMessageCounts();})
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"conversations"},payload=>{
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"conversations"},(payload:RealtimePayload)=>{
         const incoming=payload.new as ConversationRow;
         setConversations(items=>[incoming,...items.filter(item=>item.id!==incoming.id)]);
       })
-      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"conversations"},payload=>{
+      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"conversations"},(payload:RealtimePayload)=>{
         const incoming=payload.new as ConversationRow;
         setConversations(items=>items.some(item=>item.id===incoming.id)?items.map(item=>item.id===incoming.id?incoming:item):[incoming,...items]);
       })
-      .subscribe(status=>setRealtimeConnected(status==="SUBSCRIBED"));
+      .subscribe((status:string)=>setRealtimeConnected(status==="SUBSCRIBED"));
     return()=>{void supabase.removeChannel(channel);};
   },[profile.id,refreshUnreadMessageCounts,supabase]);
 
@@ -98,7 +99,7 @@ export default function PortalClient({
   const navCounts:Record<string,number>={messages:unreadMessages,notifications:unreadNotifications,annonces:unreadAnnouncements};
 
   return <div className="portalShell">
-    <aside className="portalSidebar"><a href="/" className="portalBrand"><img src="/aiac-logo.bmp" alt="AIAC"/><span><b>AIAC</b><small>Portail communautaire</small></span></a><nav>{navItems.map(([id,label])=><button key={id} className={tab===id?"active":""} onClick={()=>setTab(id)}><span>{label}</span>{navCounts[id]>0&&<i className="navBadge" aria-label={`${navCounts[id]} éléments non lus`}>{countLabel(navCounts[id])}</i>}</button>)}</nav><button className="logout" onClick={logout}>Se déconnecter</button></aside>
+    <aside className="portalSidebar"><a href="/nouveau-site/index.html" className="portalBrand"><img src="/aiac-logo.bmp" alt="AIAC"/><span><b>AIAC</b><small>Site public</small></span></a><div className="portalIdentity"><span aria-hidden="true">{(profile.full_name||profile.email||"A").charAt(0).toUpperCase()}</span><div><b>{profile.full_name||"Membre AIAC"}</b><small>{roleLabels[profile.role]||profile.role}</small></div></div><nav>{navItems.map(([id,label])=><button key={id} className={tab===id?"active":""} onClick={()=>setTab(id)}><span>{label}</span>{navCounts[id]>0&&<i className="navBadge" aria-label={`${navCounts[id]} éléments non lus`}>{countLabel(navCounts[id])}</i>}</button>)}</nav><a className="publicSiteLink" href="/nouveau-site/index.html">Voir le site public</a><button className="logout" onClick={logout}>Se déconnecter</button></aside>
     <main className="portalMain"><header><div><p className="eyebrow">{roleLabels[profile.role]||profile.role}</p><h1>Bonjour, {profile.full_name||"membre AIAC"}</h1></div><div className="portalHeaderStatus"><span className={`realtimeStatus ${realtimeConnected?"connected":"connecting"}`}>{realtimeConnected?"● Synchronisation en direct":"● Reconnexion…"}</span><span className={`status ${profile.status}`}>{profile.status==="active"?"Compte actif":profile.status==="suspended"?"Compte suspendu":"Validation en attente"}</span></div></header>
       {notice&&<div className="notice" role="status">{notice}<button onClick={()=>setNotice("")}>×</button></div>}
       {tab==="accueil"&&<section><div className="statGrid"><article><b>{requests.length}</b><span>Demandes</span></article><article><b>{conversations.length}</b><span>Conversations</span></article><article><b>{unreadNotifications}</b><span>Notifications non lues</span></article><article><b>{unreadMessages}</b><span>Messages non lus</span></article><article><b>{unreadAnnouncements}</b><span>Annonces à lire</span></article></div><div className="portalPanel"><h2>Bienvenue dans votre espace AIAC</h2><p>Soumettez et suivez vos demandes, échangez avec l’équipe, consultez les annonces et gérez votre profil depuis cet espace sécurisé.</p></div></section>}
