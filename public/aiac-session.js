@@ -1,6 +1,15 @@
 (function () {
   "use strict";
 
+  // L\'ancien explorateur de fichiers ne fait pas partie du contenu public.
+  // Cette protection retire aussi d\'éventuels anciens liens restés en cache.
+  var explorerGuardStyle = document.createElement("style");
+  explorerGuardStyle.textContent = \'a[href$="explorer.html"]{display:none!important}\';
+  document.head.appendChild(explorerGuardStyle);
+  document.querySelectorAll(\'a[href$="explorer.html"]\').forEach(function (link) {
+    link.remove();
+  });
+
   var style = document.createElement("style");
   style.textContent = [
     "#aiac-session-shell{position:sticky;top:0;z-index:2147483000;background:#071523;color:#e2e8f0;border-bottom:1px solid #28536a;box-shadow:0 7px 22px rgba(0,0,0,.28);font-family:Arial,Helvetica,sans-serif}",
