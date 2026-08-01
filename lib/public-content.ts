@@ -9,6 +9,7 @@ export type PublicContentItem={
   location:string|null;activity_date:string|null;starts_at:string|null;ends_at:string|null;status:PublicContentStatus;
   project_id:string|null;program_id:string|null;partnership_id:string|null;cover_image_path:string|null;document_path:string|null;
   external_url:string|null;is_featured:boolean;created_by:string;approved_by:string|null;published_at:string|null;created_at:string;updated_at:string;
+  content_format:"plain"|"html";source_file_name:string|null;source_mime_type:string|null;source_imported_at:string|null;
 };
 export type PublicContentMedia={id:string;content_id:string;media_type:"image"|"video"|"audio"|"document";storage_path:string|null;external_url:string|null;title:string|null;caption:string|null;alt_text:string|null;occurred_on:string|null;sort_order:number;created_by:string;created_at:string};
 export type GuestbookEntry={id:string;body_id:string|null;author_name:string;organization:string|null;message:string;status:"pending"|"published"|"rejected";moderator_id:string|null;moderation_note:string|null;published_at:string|null;created_at:string;updated_at:string};

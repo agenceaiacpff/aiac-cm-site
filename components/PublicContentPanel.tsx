@@ -1,10 +1,11 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useCallback, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { PartnershipRow, ProgramRow } from "@/components/InstitutionalPanel";
 import type { ProjectRow } from "@/components/OperationsPanel";
 import { categoryEntries, categoryFromType, contentCategories, GuestbookEntry, makeSlug, PublicBody, PublicContentItem, PublicContentMedia, PublicContentStatus } from "@/lib/public-content";
+import RichHtmlEditor, { ImportedMetadata } from "@/components/RichHtmlEditor";
 
 const statusLabels:Record<PublicContentStatus,string>={draft:"Brouillon",review:"À valider",published:"Publié",archived:"Archivé"};
 const accept="image/*,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.doc,.docx,.xls,.xlsx";
@@ -31,8 +32,20 @@ export default function PublicContentPanel({
   const [notice,setNotice]=useState("");
   const [busy,setBusy]=useState(false);
   const [filterBody,setFilterBody]=useState("all");
+  const [richHtml,setRichHtml]=useState("");
+  const [source,setSource]=useState<Pick<ImportedMetadata,"fileName"|"mimeType">|null>(null);
+  const [editorReset,setEditorReset]=useState(0);
+  const formRef=useRef<HTMLFormElement>(null);
   const bodyNames=useMemo(()=>Object.fromEntries(bodies.map(item=>[item.id,`${item.code} · ${item.name}`])),[bodies]);
   const visibleItems=items.filter(item=>(view==="all"||item.content_type===view)&&(filterBody==="all"||item.body_id===filterBody));
+  const updateEditor=useCallback((html:string)=>setRichHtml(html),[]);
+  const imported=useCallback((metadata:ImportedMetadata)=>{
+    setSource({fileName:metadata.fileName,mimeType:metadata.mimeType});
+    const form=formRef.current;if(!form)return;
+    const title=form.elements.namedItem("title") as HTMLInputElement|null;const summary=form.elements.namedItem("summary") as HTMLTextAreaElement|null;
+    if(title&&!title.value)title.value=metadata.title.slice(0,240);
+    if(summary&&!summary.value)summary.value=metadata.summary.slice(0,1200);
+  },[]);
 
   async function upload(bodyId:string,contentId:string,file:File){
     const path=`${bodyId}/${contentId}/${crypto.randomUUID()}-${cleanFileName(file.name)}`;
@@ -46,13 +59,16 @@ export default function PublicContentPanel({
     const form=event.currentTarget;const d=new FormData(form);
     const bodyId=String(d.get("body_id")||"");const title=String(d.get("title")||"").trim();
     const type=String(d.get("content_type")) as PublicContentItem["content_type"];
+    const richText=new DOMParser().parseFromString(richHtml,"text/html").body.textContent?.replace(/\s+/g," ").trim()||"";
+    if(richText.length<10){setNotice("Ajoutez au moins dix caractères dans le contenu complet ou importez un fichier.");setBusy(false);return;}
     const payload={
       body_id:bodyId,content_type:type,subtype:String(d.get("subtype")||"").trim()||null,title,slug:makeSlug(title),
-      summary:String(d.get("summary")||"").trim(),content:String(d.get("content")||"").trim(),location:String(d.get("location")||"").trim()||null,
+      summary:String(d.get("summary")||"").trim(),content:richHtml,content_format:"html",location:String(d.get("location")||"").trim()||null,
       activity_date:d.get("activity_date")||null,starts_at:d.get("starts_at")?new Date(String(d.get("starts_at"))).toISOString():null,
       ends_at:d.get("ends_at")?new Date(String(d.get("ends_at"))).toISOString():null,status:String(d.get("status")) as PublicContentStatus,
       project_id:String(d.get("project_id")||"")||null,program_id:String(d.get("program_id")||"")||null,
       partnership_id:String(d.get("partnership_id")||"")||null,external_url:String(d.get("external_url")||"").trim()||null,
+      source_file_name:source?.fileName||null,source_mime_type:source?.mimeType||null,source_imported_at:source?new Date().toISOString():null,
       is_featured:d.get("is_featured")==="on",created_by:profileId
     };
     const {data:item,error}=await supabase.from("public_content_items").insert(payload).select().single();
@@ -70,7 +86,7 @@ export default function PublicContentPanel({
       }
       if(rows.length){const {data:newMedia,error:mediaError}=await supabase.from("public_content_media").insert(rows).select();if(mediaError)throw mediaError;setMedia([...((newMedia||[]) as PublicContentMedia[]),...media]);}
       if(coverPath||documentPath){const {data:updated,error:updateError}=await supabase.from("public_content_items").update({cover_image_path:coverPath,document_path:documentPath}).eq("id",created.id).select().single();if(updateError)throw updateError;setItems([updated as PublicContentItem,...items]);}else setItems([created,...items]);
-      form.reset();setView(type);setNotice("Contenu enregistré. Les éléments publiés sont immédiatement visibles sur le site officiel et la page de l’organe.");
+      form.reset();setSource(null);setEditorReset(value=>value+1);setView(type);setNotice("Contenu riche enregistré. Les éléments publiés sont immédiatement visibles sur le site officiel et la page de l’organe.");
     }catch(error){setItems([created,...items]);setNotice(`Le contenu est enregistré, mais un média a échoué : ${error instanceof Error?error.message:"erreur inconnue"}`);}
     setBusy(false);
   }
@@ -99,14 +115,14 @@ export default function PublicContentPanel({
     </nav>
 
     {view!=="guestbook"&&<>
-      <form className="portalPanel publicContentForm" onSubmit={createPublication}>
+      <form ref={formRef} className="portalPanel publicContentForm" onSubmit={createPublication}>
         <h3>Créer un contenu</h3>
         <label>Organe subsidiaire<select name="body_id" required>{bodies.map(body=><option key={body.id} value={body.id}>{body.code} · {body.name}</option>)}</select></label>
         <label>Rubrique<select name="content_type" defaultValue={view==="all"?"project":view} required>{categoryEntries.map(([,category])=><option key={category.type} value={category.type}>{category.label}</option>)}</select></label>
         <label>Sous-type<input name="subtype" placeholder="Programme, rapport narratif, formation, recrutement…"/></label>
         <label className="wideField">Titre<input name="title" minLength={3} maxLength={240} required/></label>
         <label className="wideField">Présentation courte<textarea name="summary" minLength={10} maxLength={1200} placeholder="Texte affiché sur la carte avant l’ouverture" required/></label>
-        <label className="wideField">Contenu complet<textarea name="content" minLength={10} maxLength={50000} required/></label>
+        <div className="richEditorWide"><span className="richEditorLabel">Contenu complet avec mise en forme</span><RichHtmlEditor onChange={updateEditor} onImported={imported} resetToken={editorReset}/></div>
         <label>Lieu<input name="location" placeholder="Yaoundé, Maroua…"/></label>
         <label>Date de l’activité<input name="activity_date" type="date"/></label>
         <label>Début / rendez-vous<input name="starts_at" type="datetime-local"/></label>
@@ -126,7 +142,7 @@ export default function PublicContentPanel({
         <div className="panelHeading"><h3>Contenus ({visibleItems.length})</h3><select value={filterBody} onChange={event=>setFilterBody(event.target.value)}><option value="all">Tous mes organes</option>{bodies.map(body=><option key={body.id} value={body.id}>{body.code} · {body.name}</option>)}</select></div>
         {visibleItems.length===0&&<p>Aucun contenu dans cette rubrique.</p>}
         {visibleItems.map(item=><article className="publicAdminCard" key={item.id}>
-          <div><span className={`operationBadge ${item.status}`}>{statusLabels[item.status]}</span><small>{bodyNames[item.body_id]||"Organe"} · {contentCategories[categoryFromType(item.content_type)].label}</small><h3>{item.title}</h3><p>{item.summary}</p><small>{media.filter(row=>row.content_id===item.id).length} média(s){item.location?` · ${item.location}`:""}</small></div>
+          <div><span className={`operationBadge ${item.status}`}>{statusLabels[item.status]}</span><small>{bodyNames[item.body_id]||"Organe"} · {contentCategories[categoryFromType(item.content_type)].label}</small><h3>{item.title}</h3><p>{item.summary}</p><small>{media.filter(row=>row.content_id===item.id).length} média(s){item.location?` · ${item.location}`:""}{item.source_file_name?` · Importé depuis ${item.source_file_name}`:""}</small></div>
           <div className="announcementActions">{item.status!=="published"&&<button disabled={busy} onClick={()=>changeStatus(item,"published")}>Publier</button>}{item.status==="published"&&<a className="secondaryButton" target="_blank" href={`/publications/${categoryFromType(item.content_type)}/${item.slug}`}>Ouvrir</a>}{item.status!=="archived"&&<button className="secondaryButton" disabled={busy} onClick={()=>changeStatus(item,"archived")}>Archiver</button>}</div>
         </article>)}
       </div>

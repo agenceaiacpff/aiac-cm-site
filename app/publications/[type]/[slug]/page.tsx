@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { contentCategories, formatPublicDate, isCategorySlug, PublicBody, PublicContentItem, PublicContentMedia, publicMediaUrl, safeExternalUrl } from "@/lib/public-content";
+import { sanitizePublicHtml } from "@/lib/public-content-html";
 
 export const dynamic="force-dynamic";
 
@@ -13,9 +14,9 @@ export default async function PublicDetail({params}:{params:Promise<{type:string
     supabase.from("governance_bodies").select("id,code,name,description,subsidiary_code,region,locality").eq("id",item.body_id).maybeSingle(),
     supabase.from("public_content_media").select("*").eq("content_id",item.id).order("sort_order").order("created_at")
   ]);
-  const body=bodyData as PublicBody|null;const media=(mediaData||[]) as PublicContentMedia[];const cover=publicMediaUrl(item.cover_image_path);const external=safeExternalUrl(item.external_url);
+  const body=bodyData as PublicBody|null;const media=(mediaData||[]) as PublicContentMedia[];const cover=publicMediaUrl(item.cover_image_path);const external=safeExternalUrl(item.external_url);const richContent=item.content_format==="html"?sanitizePublicHtml(item.content):null;
   return <main className="publicHubMain publicDetail"><Link className="publicBack" href={`/publications/${type}${body?`?organe=${encodeURIComponent(body.code)}`:""}`}>← Retour à {category.label.toLowerCase()}</Link>
-    <article><header><span className="publicOrganBadge">{body?.code||"AIAC"} · {body?.name||"Organe subsidiaire"}</span><p className="publicCardMeta">Publié le {formatPublicDate(item.published_at)}{item.activity_date&&` · Activité du ${formatPublicDate(item.activity_date)}`}{item.location&&` · ${item.location}`}</p><h1>{item.title}</h1>{item.subtype&&<p className="publicLeadTag">{item.subtype}</p>}<p className="publicLead">{item.summary}</p></header>{cover&&<img className="publicDetailCover" src={cover} alt={item.title}/>}<div className="publicArticleText">{item.content.split(/\n{2,}/).map((paragraph,index)=><p key={index}>{paragraph}</p>)}</div>
+    <article><header><span className="publicOrganBadge">{body?.code||"AIAC"} · {body?.name||"Organe subsidiaire"}</span><p className="publicCardMeta">Publié le {formatPublicDate(item.published_at)}{item.activity_date&&` · Activité du ${formatPublicDate(item.activity_date)}`}{item.location&&` · ${item.location}`}</p><h1>{item.title}</h1>{item.subtype&&<p className="publicLeadTag">{item.subtype}</p>}<p className="publicLead">{item.summary}</p></header>{cover&&<img className="publicDetailCover" src={cover} alt={item.title}/>} {richContent?<div className="publicArticleText publicRichContent" dangerouslySetInnerHTML={{__html:richContent}}/>:<div className="publicArticleText">{item.content.split(/\n{2,}/).map((paragraph,index)=><p key={index}>{paragraph}</p>)}</div>}
       {(item.starts_at||item.ends_at||item.location)&&<aside className="publicEventInfo"><h2>Informations pratiques</h2>{item.starts_at&&<p><b>Début :</b> {formatPublicDate(item.starts_at,true)}</p>}{item.ends_at&&<p><b>Fin :</b> {formatPublicDate(item.ends_at,true)}</p>}{item.location&&<p><b>Lieu :</b> {item.location}</p>}</aside>}
       {external&&<p><a className="publicPrimaryButton" href={external} target="_blank" rel="noreferrer">Ouvrir le contenu associé</a></p>}
       {item.document_path&&<p><a className="publicPrimaryButton" href={publicMediaUrl(item.document_path)||"#"} target="_blank" rel="noreferrer">Consulter le document</a></p>}
