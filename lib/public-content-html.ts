@@ -62,3 +62,26 @@ export function sanitizePublicHtml(value:string){
   });
   return sanitizeHtml(inlined,finalOptions);
 }
+
+const documentTags=Array.from(new Set([...richTags,"html","head","body","style"]));
+const documentAttributes:Record<string,string[]>={
+  ...richAttributes,
+  "*":[...(richAttributes["*"]||[]),"id","role","aria-label","aria-hidden","data-*"],
+  html:["lang","dir"],body:["class","id","style","dir","lang"],style:["media","type"]
+};
+
+/** Conserve la mise en page d'un document complet, ensuite isolé dans un iframe sandboxé. */
+export function sanitizePublicHtmlDocument(value:string){
+  const safe=sanitizeHtml(value,{
+    allowedTags:documentTags,allowedAttributes:documentAttributes,
+    allowedSchemes:["http","https","mailto","tel","data"],
+    allowedSchemesByTag:{img:["http","https","data"],video:["http","https","data"],audio:["http","https","data"],source:["http","https","data"]},
+    allowedIframeHostnames:["www.youtube.com","youtube.com","www.youtube-nocookie.com","player.vimeo.com"],
+    allowProtocolRelative:false,allowVulnerableTags:true,
+    transformTags:{
+      a:(tagName,attribs)=>({tagName,attribs:{...attribs,target:"_blank",rel:"noopener noreferrer"}}),
+      img:(tagName,attribs)=>({tagName,attribs:{...attribs,loading:attribs.loading||"lazy"}})
+    }
+  });
+  return safe;
+}
