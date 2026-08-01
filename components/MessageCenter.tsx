@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import type { GovernanceBodyRow } from "@/components/InstitutionalPanel";
@@ -35,8 +35,9 @@ const sensitivityLabels:Record<string,string>={
   medical_psychosocial:"Médical / psychosocial",whistleblowing:"Signalement interne"
 };
 
-export default function MessageCenter({profile,initialConversations,recipients,bodies}:{
-  profile:AccountProfile;initialConversations:ConversationRow[];recipients:MessageRecipient[];bodies:GovernanceBodyRow[];
+export default function MessageCenter({profile,initialConversations,initialActiveId,unreadCounts,onConversationRead,onConversationChange,recipients,bodies}:{
+  profile:AccountProfile;initialConversations:ConversationRow[];initialActiveId:string|null;unreadCounts:Record<string,number>;
+  onConversationRead:()=>void;onConversationChange:(conversation:ConversationRow)=>void;recipients:MessageRecipient[];bodies:GovernanceBodyRow[];
 }){
   const supabase=useMemo(()=>createClient(),[]);
   const [conversations,setConversations]=useState(initialConversations);
@@ -54,7 +55,7 @@ export default function MessageCenter({profile,initialConversations,recipients,b
   const bodyNames=useMemo(()=>Object.fromEntries(bodies.map(item=>[item.id,item.name])),[bodies]);
   const filtered=conversations.filter(item=>`${item.title} ${sensitivityLabels[item.sensitivity]||item.sensitivity}`.toLowerCase().includes(query.toLowerCase()));
 
-  async function refreshConversation(id:string){
+  const refreshConversation=useCallback(async(id:string)=>{
     const [{data:messageRows},{data:memberRows},{data:attachmentRows}]=await Promise.all([
       supabase.from("messages").select("id,conversation_id,sender_id,body,created_at").eq("conversation_id",id).order("created_at"),
       supabase.from("conversation_members").select("conversation_id,user_id,member_role,joined_at").eq("conversation_id",id).order("joined_at"),
@@ -63,17 +64,21 @@ export default function MessageCenter({profile,initialConversations,recipients,b
     setMessages((messageRows||[]) as Message[]);
     setMembers((memberRows||[]) as Member[]);
     setAttachments((attachmentRows||[]) as unknown as Attachment[]);
-    await supabase.rpc("mark_conversation_read",{target_conversation:id});
-  }
+    const {error}=await supabase.rpc("mark_conversation_read",{target_conversation:id});
+    if(!error)onConversationRead();
+  },[onConversationRead,supabase]);
+
+  useEffect(()=>setConversations(initialConversations),[initialConversations]);
+  useEffect(()=>{if(initialActiveId&&initialConversations.some(item=>item.id===initialActiveId))setActiveId(initialActiveId);},[initialActiveId,initialConversations]);
 
   useEffect(()=>{
     if(!activeId)return;
     refreshConversation(activeId);
     const channel=supabase.channel(`conversation:${activeId}`)
-      .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`conversation_id=eq.${activeId}`},payload=>setMessages(old=>[...old,payload.new as Message]))
+      .on("postgres_changes",{event:"INSERT",schema:"public",table:"messages",filter:`conversation_id=eq.${activeId}`},()=>{void refreshConversation(activeId);})
       .subscribe();
     return()=>{supabase.removeChannel(channel);};
-  },[activeId,supabase]);
+  },[activeId,refreshConversation,supabase]);
 
   async function createConversation(event:FormEvent<HTMLFormElement>){
     event.preventDefault();setBusy(true);const form=event.currentTarget;const d=new FormData(form);
@@ -82,7 +87,7 @@ export default function MessageCenter({profile,initialConversations,recipients,b
       sensitivity:String(d.get("sensitivity")||"standard"),organization_unit_id:String(d.get("organization_unit_id")||"")||null};
     const {data,error}=await supabase.from("conversations").insert(payload).select().single();
     if(error||!data){setNotice(error?.message||"Création impossible");setBusy(false);return;}
-    setConversations([data as ConversationRow,...conversations]);setActiveId(data.id);form.reset();
+    setConversations([data as ConversationRow,...conversations]);onConversationChange(data as ConversationRow);setActiveId(data.id);form.reset();
     setNotice("Conversation créée. Seuls les participants désignés peuvent la consulter.");setBusy(false);
   }
 
@@ -117,7 +122,7 @@ export default function MessageCenter({profile,initialConversations,recipients,b
     if(error)setNotice(error.message);else{form.reset();await refreshConversation(activeId);setNotice("Participant ajouté avec un accès explicite.");}setBusy(false);
   }
   async function removeParticipant(userId:string){if(!activeId)return;setBusy(true);const {error}=await supabase.from("conversation_members").delete().eq("conversation_id",activeId).eq("user_id",userId);if(error)setNotice(error.message);else await refreshConversation(activeId);setBusy(false);}
-  async function toggleArchive(){if(!active)return;setBusy(true);const next=active.status==="archived"?"active":"archived";const {error}=await supabase.from("conversations").update({status:next}).eq("id",active.id);if(error)setNotice(error.message);else setConversations(rows=>rows.map(row=>row.id===active.id?{...row,status:next}:row));setBusy(false);}
+  async function toggleArchive(){if(!active)return;setBusy(true);const next=active.status==="archived"?"active":"archived";const {error}=await supabase.from("conversations").update({status:next}).eq("id",active.id);if(error)setNotice(error.message);else{const updated={...active,status:next};setConversations(rows=>rows.map(row=>row.id===active.id?updated:row));onConversationChange(updated);}setBusy(false);}
   async function openAttachment(documentId:string){
     const response=await fetch(`/api/documents/${documentId}/download`,{cache:"no-store"});const payload=await response.json();
     if(!response.ok){setNotice(payload.error||"Téléchargement refusé");return;}window.open(payload.url,"_blank","noopener,noreferrer");
@@ -135,7 +140,7 @@ export default function MessageCenter({profile,initialConversations,recipients,b
       </form>
       <input className="messageSearch" value={query} onChange={event=>setQuery(event.target.value)} placeholder="Rechercher une conversation"/>
       <p className="privacyHint">Aucun personnel ni super-administrateur n’est ajouté automatiquement.</p>
-      {filtered.map(item=><button key={item.id} className={activeId===item.id?"selected":""} onClick={()=>setActiveId(item.id)}><b>{item.title}</b><small>{sensitivityLabels[item.sensitivity]} · {item.status==="archived"?"Archivée":"Active"}</small></button>)}
+      {filtered.map(item=><button key={item.id} className={activeId===item.id?"selected":""} onClick={()=>setActiveId(item.id)}><span><b>{item.title}</b><small>{sensitivityLabels[item.sensitivity]} · {item.status==="archived"?"Archivée":"Active"}</small></span>{unreadCounts[item.id]>0&&<i className="conversationBadge">{unreadCounts[item.id]>99?"99+":unreadCounts[item.id]}</i>}</button>)}
     </div>
     <div className="portalPanel messagePanel"><div className="panelTitleRow"><div><h2>{active?.title||"Messages"}</h2>{active&&<small>{sensitivityLabels[active.sensitivity]}{active.organization_unit_id?` · ${bodyNames[active.organization_unit_id]}`:""}</small>}</div>{canManage&&active&&<button onClick={toggleArchive} disabled={busy}>{active.status==="archived"?"Rouvrir":"Archiver"}</button>}</div>
       <div className="messageStream">{messages.map(item=><div key={item.id} className={`message ${item.sender_id===profile.id?"mine":""}`}><b>{names[item.sender_id]||"Participant"}</b><p>{item.body}</p>{attachments.filter(row=>row.message_id===item.id).map(row=><button className="attachmentLink" key={row.document_id} onClick={()=>openAttachment(row.document_id)}>📎 {row.documents?.file_name||row.documents?.title||"Pièce jointe"}</button>)}<small>{new Date(item.created_at).toLocaleString("fr-FR")}</small></div>)}{!active&&<p>Créez ou sélectionnez une conversation.</p>}</div>
