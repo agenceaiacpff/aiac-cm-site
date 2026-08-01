@@ -5,6 +5,7 @@ import sanitizeHtml from "sanitize-html";
 const richTags=Array.from(new Set([
   ...sanitizeHtml.defaults.allowedTags,
   "article","section","header","footer","figure","figcaption","mark","details","summary",
+  "img",
   "table","thead","tbody","tfoot","tr","th","td","caption","colgroup","col",
   "video","audio","source","iframe"
 ]));
