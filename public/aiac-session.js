@@ -1,12 +1,12 @@
 (function () {
   "use strict";
 
-  // L\'ancien explorateur de fichiers ne fait pas partie du contenu public.
-  // Cette protection retire aussi d\'éventuels anciens liens restés en cache.
+  // L'ancien explorateur de fichiers ne fait pas partie du contenu public.
+  // Cette protection retire aussi d'éventuels anciens liens restés en cache.
   var explorerGuardStyle = document.createElement("style");
-  explorerGuardStyle.textContent = \'a[href$="explorer.html"]{display:none!important}\';
+  explorerGuardStyle.textContent = 'a[href$="explorer.html"]{display:none!important}';
   document.head.appendChild(explorerGuardStyle);
-  document.querySelectorAll(\'a[href$="explorer.html"]\').forEach(function (link) {
+  document.querySelectorAll('a[href$="explorer.html"]').forEach(function (link) {
     link.remove();
   });
 
