@@ -24,7 +24,7 @@ async function prepareImportedHtml(html:string){
   }catch{return cleanHtml(preliminary);}
 }
 
-function prepareImportedDocument(html:string){
+export function prepareImportedDocument(html:string){
   return DOMPurify.sanitize(html,{
     WHOLE_DOCUMENT:true,USE_PROFILES:{html:true},ADD_TAGS:["style"],
     ADD_ATTR:["target","rel","controls","poster","allowfullscreen","role","aria-label","aria-hidden"],

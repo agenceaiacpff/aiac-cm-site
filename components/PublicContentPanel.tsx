@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { PartnershipRow, ProgramRow } from "@/components/InstitutionalPanel";
 import type { ProjectRow } from "@/components/OperationsPanel";
 import { categoryEntries, categoryFromType, contentCategories, GuestbookEntry, makeSlug, PublicBody, PublicContentItem, PublicContentMedia, PublicContentStatus } from "@/lib/public-content";
-import RichHtmlEditor, { ImportedMetadata } from "@/components/RichHtmlEditor";
+import RichHtmlEditor, { ImportedMetadata, prepareImportedDocument } from "@/components/RichHtmlEditor";
 
 const statusLabels:Record<PublicContentStatus,string>={draft:"Brouillon",review:"À valider",published:"Publié",archived:"Archivé"};
 const accept="image/*,video/mp4,video/webm,video/quicktime,audio/*,.pdf,.doc,.docx,.xls,.xlsx";
@@ -99,6 +99,22 @@ export default function PublicContentPanel({
     setBusy(false);
   }
 
+  async function replaceHtmlDocument(item:PublicContentItem,file:File){
+    setBusy(true);setNotice("");
+    try{
+      if(!/\.html?$/i.test(file.name))throw new Error("Choisissez un fichier .html ou .htm.");
+      const safe=prepareImportedDocument(await file.text());
+      const text=new DOMParser().parseFromString(safe,"text/html").body.textContent?.replace(/\s+/g," ").trim()||"";
+      if(text.length<10)throw new Error("Le fichier ne contient pas assez de texte publiable.");
+      if(safe.length>4900000)throw new Error("Le document dépasse 4,9 Mo. Réduisez la taille des images intégrées.");
+      const {data,error}=await supabase.from("public_content_items").update({content:safe,content_format:"html_document",source_file_name:file.name,source_mime_type:file.type||"text/html",source_imported_at:new Date().toISOString()}).eq("id",item.id).select().single();
+      if(error||!data)throw error||new Error("Le document n’a pas pu être remplacé.");
+      setItems(items.map(row=>row.id===item.id?data as PublicContentItem:row));
+      setNotice(`Le fichier HTML de « ${item.title} » a été remplacé. Les images et la mise en page sont conservées.`);
+    }catch(error){setNotice(error instanceof Error?error.message:"Remplacement impossible.");}
+    setBusy(false);
+  }
+
   async function moderate(entry:GuestbookEntry,status:"published"|"rejected"){
     setBusy(true);const {data,error}=await supabase.from("guestbook_entries").update({status}).eq("id",entry.id).select().single();
     if(error||!data)setNotice(error?.message||"Modération impossible.");else{setGuestbook(guestbook.map(row=>row.id===entry.id?data as GuestbookEntry:row));setNotice(status==="published"?"Témoignage publié.":"Témoignage refusé.");}
@@ -145,7 +161,7 @@ export default function PublicContentPanel({
         {visibleItems.length===0&&<p>Aucun contenu dans cette rubrique.</p>}
         {visibleItems.map(item=><article className="publicAdminCard" key={item.id}>
           <div><span className={`operationBadge ${item.status}`}>{statusLabels[item.status]}</span><small>{bodyNames[item.body_id]||"Organe"} · {contentCategories[categoryFromType(item.content_type)].label}</small><h3>{item.title}</h3><p>{item.summary}</p><small>{media.filter(row=>row.content_id===item.id).length} média(s){item.location?` · ${item.location}`:""}{item.source_file_name?` · Importé depuis ${item.source_file_name}`:""}</small></div>
-          <div className="announcementActions">{item.status!=="published"&&<button disabled={busy} onClick={()=>changeStatus(item,"published")}>Publier</button>}{item.status==="published"&&<a className="secondaryButton" target="_blank" href={`/publications/${categoryFromType(item.content_type)}/${item.slug}`}>Ouvrir</a>}{item.status!=="archived"&&<button className="secondaryButton" disabled={busy} onClick={()=>changeStatus(item,"archived")}>Archiver</button>}</div>
+          <div className="announcementActions">{item.status!=="published"&&<button disabled={busy} onClick={()=>changeStatus(item,"published")}>Publier</button>}{item.status==="published"&&<a className="secondaryButton" target="_blank" href={`/publications/${categoryFromType(item.content_type)}/${item.slug}`}>Ouvrir</a>}<label className={`secondaryButton fileAction ${busy?"disabled":""}`}>Remplacer le fichier HTML<input type="file" accept=".html,.htm,text/html,application/xhtml+xml" disabled={busy} onChange={event=>{const file=event.target.files?.[0];if(file)void replaceHtmlDocument(item,file);event.currentTarget.value="";}}/></label>{item.status!=="archived"&&<button className="secondaryButton" disabled={busy} onClick={()=>changeStatus(item,"archived")}>Archiver</button>}</div>
         </article>)}
       </div>
     </>}
