@@ -162,6 +162,19 @@ export default function SuperAdminDataCenter({
     Record<string, Record<string, unknown>>
   >({});
   const [advancedLoadingId, setAdvancedLoadingId] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    void supabase
+      .from("activity_tasks")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }: { count: number | null }) => {
+        if (!cancelled && typeof count === "number") setTaskTotal(count);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [supabase]);
   const groups: ResourceGroup[] = [
     {
       id: "governance_body",
