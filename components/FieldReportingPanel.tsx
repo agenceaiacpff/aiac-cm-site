@@ -2756,7 +2756,7 @@ export default function FieldReportingPanel({
               })
             )}
           </div>
-          {selectedReport && <OfficialReportDetails report={selectedReport} />}
+          {selectedReport && OfficialReportDetails({ report: selectedReport })}
         </>
       )}
 
