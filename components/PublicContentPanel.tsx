@@ -135,7 +135,7 @@ export default function PublicContentPanel({
     {view!=="guestbook"&&<>
       <form ref={formRef} className="portalPanel publicContentForm" onSubmit={createPublication}>
         <h3>Créer un contenu</h3>
-        <label>Organe subsidiaire<select name="body_id" required>{bodies.map(body=><option key={body.id} value={body.id}>{body.code} · {body.name}</option>)}</select></label>
+        <label>Organe responsable<select name="body_id" required>{bodies.map(body=><option key={body.id} value={body.id}>{body.code} · {body.name}</option>)}</select></label>
         <label>Rubrique<select name="content_type" defaultValue={view==="all"?"project":view} required>{categoryEntries.map(([,category])=><option key={category.type} value={category.type}>{category.label}</option>)}</select></label>
         <label>Sous-type<input name="subtype" placeholder="Programme, rapport narratif, formation, recrutement…"/></label>
         <label className="wideField">Titre<input name="title" minLength={3} maxLength={240} required/></label>

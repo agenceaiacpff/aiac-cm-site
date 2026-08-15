@@ -88,7 +88,7 @@ export default async function Espace() {
     canFieldReport?supabase.from("task_report_events").select("*").order("created_at"):Promise.resolve({data:[]})
   ]);
   const memberIds=new Set((institutionalMembers||[]).filter(item=>item.profile_id===userId).map(item=>item.id));
-  const manageablePublicBodyIds=isAdmin?(bodies||[]).filter(item=>item.body_type==="subsidiary_body"&&item.status==="active").map(item=>item.id):Array.from(new Set([
+  const manageablePublicBodyIds=isAdmin?(bodies||[]).filter(item=>item.status==="active").map(item=>item.id):Array.from(new Set([
     ...(positionAssignments||[]).filter(item=>item.profile_id===userId&&item.status==="active").map(item=>item.body_id),
     ...(workforceAssignments||[]).filter(item=>item.profile_id===userId&&item.body_id&&item.status==="active").map(item=>item.body_id as string),
     ...(bodyMemberships||[]).filter(item=>memberIds.has(item.member_id)&&item.status==="active").map(item=>item.body_id)
