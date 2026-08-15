@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
 type ControlRow = {
@@ -108,6 +108,17 @@ export default function SuperAdminDataCenter({
   }>;
 }) {
   const supabase = useMemo(() => createClient(), []);
+  const [remoteTasks, setRemoteTasks] = useState<ControlRow[]>(() =>
+    tasks.map((r) => ({
+      id: r.id,
+      reference: r.code,
+      name: r.title,
+      description: r.description,
+      status: r.status,
+    })),
+  );
+  const [taskTotal, setTaskTotal] = useState(tasks.length);
+  const [taskLoading, setTaskLoading] = useState(false);
   const groups: ResourceGroup[] = [
     {
       id: "governance_body",
@@ -197,13 +208,7 @@ export default function SuperAdminDataCenter({
       id: "activity_task",
       label: "Tâches rapportables",
       purpose: "Unités exécutées et rapportées par les agents",
-      rows: tasks.map((r) => ({
-        id: r.id,
-        reference: r.code,
-        name: r.title,
-        description: r.description,
-        status: r.status,
-      })),
+      rows: remoteTasks,
     },
     {
       id: "task_report",
@@ -246,13 +251,64 @@ export default function SuperAdminDataCenter({
   const [notice, setNotice] = useState("");
   const [busyId, setBusyId] = useState("");
   const current = groups.find((group) => group.id === resource) || groups[0];
-  const visible = current.rows
-    .filter((row) =>
-      `${row.reference} ${row.name} ${row.description || ""} ${row.status || ""}`
-        .toLowerCase()
-        .includes(query.toLowerCase()),
-    )
-    .slice(0, 250);
+  const visible =
+    resource === "activity_task"
+      ? current.rows
+      : current.rows
+          .filter((row) =>
+            `${row.reference} ${row.name} ${row.description || ""} ${row.status || ""}`
+              .toLowerCase()
+              .includes(query.toLowerCase()),
+          )
+          .slice(0, 250);
+
+  useEffect(() => {
+    if (resource !== "activity_task") return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setTaskLoading(true);
+      const safeQuery = query.trim().replace(/[,%()]/g, " ");
+      let request = supabase
+        .from("activity_tasks")
+        .select("id,code,title,description,status", { count: "exact" })
+        .order("created_at", { ascending: false })
+        .limit(250);
+      if (safeQuery) {
+        request = request.or(
+          `code.ilike.%${safeQuery}%,title.ilike.%${safeQuery}%,description.ilike.%${safeQuery}%`,
+        );
+      }
+      const { data, count, error } = await request;
+      if (cancelled) return;
+      if (error) {
+        setNotice(error.message);
+      } else {
+        setRemoteTasks(
+          (data || []).map(
+            (row: {
+              id: string;
+              code: string;
+              title: string;
+              description: string | null;
+              status: string;
+            }) => ({
+              id: row.id,
+              reference: row.code,
+              name: row.title,
+              description: row.description,
+              status: row.status,
+            }),
+          ),
+        );
+        if (!safeQuery && typeof count === "number") setTaskTotal(count);
+      }
+      setTaskLoading(false);
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query, resource, supabase]);
 
   async function save(event: FormEvent<HTMLFormElement>, row: ControlRow) {
     event.preventDefault();
@@ -332,7 +388,10 @@ export default function SuperAdminDataCenter({
               setQuery("");
             }}
           >
-            {group.label} <small>{group.rows.length}</small>
+            {group.label}{" "}
+            <small>
+              {group.id === "activity_task" ? taskTotal : group.rows.length}
+            </small>
           </button>
         ))}
       </div>
@@ -348,13 +407,17 @@ export default function SuperAdminDataCenter({
             placeholder={`Rechercher dans ${current.label.toLowerCase()}`}
           />
         </div>
-        {current.rows.length > 250 && !query && (
-          <p className="privacyHint">
-            Les 250 premiers éléments sont affichés. Utilisez la recherche pour
-            atteindre une référence précise.
-          </p>
-        )}
-        {visible.length === 0 ? (
+        {(resource === "activity_task" ? taskTotal : current.rows.length) >
+          250 &&
+          !query && (
+            <p className="privacyHint">
+              Les 250 premiers éléments sont affichés. Utilisez la recherche
+              pour atteindre une référence précise.
+            </p>
+          )}
+        {taskLoading ? (
+          <p>Chargement des tâches…</p>
+        ) : visible.length === 0 ? (
           <p>Aucun élément correspondant.</p>
         ) : (
           visible.map((row) => (
