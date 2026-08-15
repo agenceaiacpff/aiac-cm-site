@@ -16,10 +16,11 @@ import PublicContentPanel from "@/components/PublicContentPanel";
 import type { GuestbookEntry, PublicContentItem, PublicContentMedia } from "@/lib/public-content";
 import profileStyles from "@/components/PortalProfile.module.css";
 import MeetingsPanel, { MeetingBodyEntry, MeetingDirectoryEntry, MeetingGuestRow, MeetingParticipantRow, MeetingProjectEntry, MeetingRow } from "@/components/MeetingsPanel";
+import FieldReportingPanel, { ActivityTaskRow, TaskReportApprovalRow, TaskReportAttendanceRow, TaskReportEventRow, TaskReportEvidenceRow, TaskReportIndicatorRow, TaskReportRow } from "@/components/FieldReportingPanel";
 
 type UnreadMessageCountRow={conversation_id:string;unread_count:number};
 type RealtimePayload={new:unknown};
-const portalTabs=["accueil","reunions","annonces","notifications","demandes","messages","documents","operations","institution","contenus","administration","audit","profil"];
+const portalTabs=["accueil","reunions","annonces","notifications","demandes","messages","documents","operations","terrain","institution","contenus","administration","audit","profil"];
 
 function countLabel(count:number){return count>99?"99+":String(count);}
 
@@ -34,6 +35,7 @@ export default function PortalClient({
   initialPermissions,initialPermissionOverrides,initialAccountScopes,initialInterventions,
   initialPublicContent,initialPublicMedia,initialGuestbookEntries,manageablePublicBodyIds,
   initialMeetings,initialMeetingParticipants,initialMeetingGuests,meetingRecipients,meetingBodies,meetingProjects,
+  initialActivityTasks,initialTaskReports,initialTaskReportEvidence,initialTaskReportAttendance,initialTaskReportIndicators,initialTaskReportApprovals,initialTaskReportEvents,
 }:{
   profile:AccountProfile;initialRequests:RequestRow[];initialConversations:ConversationRow[];initialNotifications:NotificationRow[];initialUnreadMessageCounts:UnreadMessageCountRow[];
   staffProfiles:AccountProfile[];initialAuditLogs:AuditLogRow[];initialProjects:ProjectRow[];initialProjectMembers:ProjectMemberRow[];
@@ -46,6 +48,7 @@ export default function PortalClient({
   initialPermissions:PermissionRow[];initialPermissionOverrides:PermissionOverrideRow[];initialAccountScopes:AccountScopeRow[];initialInterventions:InterventionRow[];
   initialPublicContent:PublicContentItem[];initialPublicMedia:PublicContentMedia[];initialGuestbookEntries:GuestbookEntry[];manageablePublicBodyIds:string[];
   initialMeetings:MeetingRow[];initialMeetingParticipants:MeetingParticipantRow[];initialMeetingGuests:MeetingGuestRow[];meetingRecipients:MeetingDirectoryEntry[];meetingBodies:MeetingBodyEntry[];meetingProjects:MeetingProjectEntry[];
+  initialActivityTasks:ActivityTaskRow[];initialTaskReports:TaskReportRow[];initialTaskReportEvidence:TaskReportEvidenceRow[];initialTaskReportAttendance:TaskReportAttendanceRow[];initialTaskReportIndicators:TaskReportIndicatorRow[];initialTaskReportApprovals:TaskReportApprovalRow[];initialTaskReportEvents:TaskReportEventRow[];
 }){
   const supabase=useMemo(()=>createClient(),[]);
   const router=useRouter();
@@ -63,6 +66,7 @@ export default function PortalClient({
   const [avatarUrl,setAvatarUrl]=useState(profile.avatar_url||"");
   const [avatarBusy,setAvatarBusy]=useState(false);
   const isStaff=["staff","manager","admin","super_admin"].includes(profile.role);
+  const canFieldReport=isStaff||profile.role==="volunteer";
   const isAdmin=["admin","super_admin"].includes(profile.role);
   const isSuperAdmin=profile.role==="super_admin";
 
@@ -128,7 +132,7 @@ export default function PortalClient({
   }
   async function logout(){await supabase.auth.signOut();router.push("/connexion");router.refresh();}
 
-  const navItems=[["accueil","Tableau de bord"],["reunions","Réunions et agenda"],["demandes","Mes demandes"],["messages","Messagerie"],["notifications","Notifications"],["annonces","Annonces"],["profil","Mon profil"],...(isStaff?[["documents","Documents sécurisés"],["operations","Gestion opérationnelle"],["institution","Gestion institutionnelle"],["contenus","Publications du site"]]:[]),...(isAdmin?[["administration","Administration"]]:[]),...(isSuperAdmin?[["audit","Journal d’audit"]]:[])];
+  const navItems=[["accueil","Tableau de bord"],["reunions","Réunions et agenda"],["demandes","Mes demandes"],["messages","Messagerie"],["notifications","Notifications"],["annonces","Annonces"],["profil","Mon profil"],...(canFieldReport?[["terrain","Rapports de terrain"]]:[]),...(isStaff?[["documents","Documents sécurisés"],["operations","Gestion opérationnelle"],["institution","Gestion institutionnelle"],["contenus","Publications du site"]]:[]),...(isAdmin?[["administration","Administration"]]:[]),...(isSuperAdmin?[["audit","Journal d’audit"]]:[])];
   const navCounts:Record<string,number>={reunions:pendingMeetingInvitations,messages:unreadMessages,notifications:unreadNotifications,annonces:unreadAnnouncements};
 
   return <div className="portalShell">
@@ -144,6 +148,7 @@ export default function PortalClient({
       {tab==="annonces"&&<AnnouncementsPanel profileId={profile.id} isAdmin={isAdmin} initialAnnouncements={initialAnnouncements} initialReadIds={initialAnnouncementReadIds}/>}
       {tab==="profil"&&<section className="portalPanel"><h2>Mon profil</h2><div className={profileStyles.profileGrid}><div className={profileStyles.avatarCard}>{avatarUrl?<img className={profileStyles.avatarPreview} src={avatarUrl} alt={`Photo de ${profile.full_name||"profil"}`}/>:<div className={profileStyles.avatarFallback} aria-hidden="true">{(profile.full_name||profile.email||"A").charAt(0).toUpperCase()}</div>}<div><h3>Photo de profil</h3><p>JPG, PNG ou WebP, 5 Mo maximum.</p><form className={profileStyles.avatarForm} onSubmit={uploadAvatar}><input name="avatar" type="file" accept="image/jpeg,image/png,image/webp" required/><button disabled={avatarBusy}>{avatarBusy?"Envoi…":"Choisir et enregistrer"}</button></form>{avatarUrl&&<button className={profileStyles.removeButton} type="button" onClick={removeAvatar} disabled={avatarBusy}>Supprimer la photo</button>}</div></div><form className="inlineForm" onSubmit={updateProfile}><label>Nom complet<input name="full_name" defaultValue={profile.full_name||""} required/></label><label>E-mail<input value={profile.email||""} disabled/></label><label>Téléphone<input name="phone" defaultValue={profile.phone||""}/></label><label>Organisation<input name="organization" defaultValue={profile.organization||""}/></label><button>Enregistrer</button></form></div>{isAdmin&&<div className="securityBox"><h3>Sécurité renforcée active</h3><p>Les actions administratives sensibles exigent une session MFA de niveau AAL2.</p><a href="/mfa">Vérifier mon authentification</a></div>}</section>}
       {tab==="operations"&&isStaff&&<OperationsPanel profile={profile} initialProjects={initialProjects} initialPrograms={initialPrograms} initialActivities={initialActivities} initialMembers={initialProjectMembers} initialTasks={initialTasks} initialDocuments={initialDocuments} initialBeneficiaries={initialBeneficiaries} initialRequests={requests} initialRequestEvents={initialRequestEvents} initialTaskEvents={initialTaskEvents} initialInterventions={initialInterventions} staffProfiles={staffProfiles} bodies={initialBodies}/>} 
+      {tab==="terrain"&&canFieldReport&&<FieldReportingPanel profile={profile} programs={initialPrograms} projects={initialProjects} activities={initialActivities} projectMembers={initialProjectMembers} staffProfiles={staffProfiles} bodies={initialBodies} initialActivityTasks={initialActivityTasks} initialTaskReports={initialTaskReports} initialEvidence={initialTaskReportEvidence} initialAttendance={initialTaskReportAttendance} initialIndicators={initialTaskReportIndicators} initialApprovals={initialTaskReportApprovals} initialEvents={initialTaskReportEvents}/>}
       {tab==="institution"&&isStaff&&<InstitutionalPanel profile={profile} staffProfiles={staffProfiles} projects={initialProjects} projectMembers={initialProjectMembers} beneficiaries={initialBeneficiaries} initialBodies={initialBodies} initialInstitutionalMembers={initialInstitutionalMembers} initialBodyMemberships={initialBodyMemberships} initialWorkforceAssignments={initialWorkforceAssignments} initialPrograms={initialPrograms} initialPartners={initialPartners} initialPartnerships={initialPartnerships} initialCaseFiles={initialCaseFiles} initialCaseNotes={initialCaseNotes} initialCaseActions={initialCaseActions} initialActivities={initialActivities} initialActivityReports={initialActivityReports}/>}
       {tab==="contenus"&&isStaff&&<PublicContentPanel profileId={profile.id} bodies={initialBodies.filter(body=>manageablePublicBodyIds.includes(body.id))} initialItems={initialPublicContent} initialMedia={initialPublicMedia} initialGuestbook={initialGuestbookEntries} projects={initialProjects} programs={initialPrograms} partnerships={initialPartnerships}/>}
       {tab==="administration"&&isAdmin&&<AccountsPanel currentProfile={profile} initialProfiles={staffProfiles} initialHistory={initialAccountHistory} initialBodies={initialBodies} initialPositions={initialPositionDefinitions} initialPositionAssignments={initialPositionAssignments} initialReviews={initialAccountReviews} initialPermissions={initialPermissions} initialPermissionOverrides={initialPermissionOverrides} initialAccountScopes={initialAccountScopes} initialSessions={initialSessionActivity}/>}
