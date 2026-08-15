@@ -156,8 +156,8 @@ export default function FieldReportingPanel({
   }
 
   async function addEvidence(event:FormEvent<HTMLFormElement>,report:TaskReportRow){
-    event.preventDefault();const form=event.currentTarget;const data=new FormData(form);const candidate=evidenceFile||data.get("file");const file=candidate&&typeof candidate==="object"&&"name" in candidate&&"size" in candidate?candidate as File:null;
-    if(!file||file.size===0){setError("Sélectionnez un fichier.");return;}if(file.size>15*1024*1024){setError("Le fichier dépasse 15 Mo.");return;}
+    event.preventDefault();const form=event.currentTarget;const data=new FormData(form);const file=(evidenceFile||data.get("file")) as File|null;
+    if(!file||!file.name){setError("Sélectionnez un fichier.");return;}if(typeof file.size==="number"&&file.size>15*1024*1024){setError("Le fichier dépasse 15 Mo.");return;}
     setBusy(true);try{const path=await uploadFile(report,file,"evidence");const digest=await sha256(file);const {data:created,error}=await supabase.from("task_report_evidence").insert({report_id:report.id,evidence_type:String(data.get("evidence_type")),storage_path:path,file_name:file.name,mime_type:file.type||"application/octet-stream",size_bytes:file.size,sha256:digest,caption:String(data.get("caption")||"").trim()||null,classification:String(data.get("classification")||"internal"),uploaded_by:profile.id}).select().single();if(error||!created){await supabase.storage.from("aiac-task-reports").remove([path]);throw error||new Error("Enregistrement impossible");}setEvidence(items=>[...items,created as TaskReportEvidenceRow]);form.reset();setEvidenceFile(null);setNotice("Preuve ajoutée et empreinte SHA-256 enregistrée.");setBusy(false);}catch(error){setError(error instanceof Error?error.message:"Envoi impossible");}
   }
 
