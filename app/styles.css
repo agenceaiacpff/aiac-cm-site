@@ -1156,6 +1156,82 @@ textarea {
   }
 }
 
+.advancedAdminEditor {
+  border-top: 1px solid #cbd5e1;
+  margin-top: 18px;
+  padding-top: 16px;
+}
+.advancedAdminEditor > .secondaryButton {
+  background: #e2e8f0;
+  border: 0;
+  border-radius: 9px;
+  color: #334155;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 10px 14px;
+}
+.advancedFieldsForm {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 16px;
+}
+.advancedFieldsForm h4,
+.advancedFieldsForm > p,
+.advancedFieldsForm > button {
+  grid-column: 1/-1;
+}
+.advancedFieldsForm h4,
+.advancedFieldsForm > p {
+  margin: 0;
+}
+.advancedFieldsForm label {
+  color: #475569;
+  display: grid;
+  font-size: 12px;
+  font-weight: 800;
+  gap: 5px;
+  min-width: 0;
+}
+.advancedFieldsForm input,
+.advancedFieldsForm select,
+.advancedFieldsForm textarea {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 9px;
+  color: #0f172a;
+  font: inherit;
+  max-width: 100%;
+  min-width: 0;
+  padding: 9px;
+}
+.advancedFieldsForm textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+.advancedFieldsForm > button {
+  background: #0f766e;
+  border: 0;
+  border-radius: 9px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 900;
+  padding: 11px 14px;
+}
+@media (max-width: 700px) {
+  .advancedFieldsForm {
+    grid-template-columns: 1fr;
+  }
+  .advancedFieldsForm h4,
+  .advancedFieldsForm > p,
+  .advancedFieldsForm > button {
+    grid-column: auto;
+  }
+}
+
 .listTools {
   align-items: center;
   background: #f8fafc;
@@ -2543,10 +2619,9 @@ textarea {
   align-items: end;
   display: grid;
   gap: 10px;
-  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr) minmax(
-      200px,
-      1fr
-    ) auto;
+  grid-template-columns:
+    minmax(180px, 1fr) minmax(220px, 1fr) minmax(200px, 1fr)
+    auto;
   margin-top: 12px;
 }
 .reviewForm label {
