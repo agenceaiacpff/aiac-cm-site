@@ -17,6 +17,45 @@ type ResourceGroup = {
   rows: ControlRow[];
 };
 
+const resourceTables: Record<string, string> = {
+  governance_body: "governance_bodies",
+  institutional_member: "institutional_members",
+  workforce_assignment: "workforce_assignments",
+  partner: "partners",
+  program: "programs",
+  project: "projects",
+  activity: "activities",
+  activity_task: "activity_tasks",
+  task_report: "task_reports",
+  public_content: "public_content_items",
+  document: "documents",
+};
+
+const technicalFields = new Set([
+  "id",
+  "created_at",
+  "updated_at",
+  "created_by",
+  "current_hash",
+  "revision",
+  "report_number",
+  "reporter_id",
+  "reporter_signature_name",
+  "reporter_signature_asset_path",
+  "reporter_signed_at",
+  "submitted_at",
+  "approved_at",
+  "approved_by",
+  "returned_at",
+  "public_content_id",
+  "published_at",
+  "published_by",
+  "file_url",
+  "file_name",
+  "mime_type",
+  "size_bytes",
+]);
+
 export default function SuperAdminDataCenter({
   programs,
   projects,
@@ -119,6 +158,10 @@ export default function SuperAdminDataCenter({
   );
   const [taskTotal, setTaskTotal] = useState(tasks.length);
   const [taskLoading, setTaskLoading] = useState(false);
+  const [advancedRows, setAdvancedRows] = useState<
+    Record<string, Record<string, unknown>>
+  >({});
+  const [advancedLoadingId, setAdvancedLoadingId] = useState("");
   const groups: ResourceGroup[] = [
     {
       id: "governance_body",
@@ -333,6 +376,70 @@ export default function SuperAdminDataCenter({
     setBusyId("");
   }
 
+  async function loadAllFields(row: ControlRow) {
+    setAdvancedLoadingId(row.id);
+    setNotice("");
+    const table = resourceTables[resource];
+    const { data, error } = await supabase
+      .from(table)
+      .select("*")
+      .eq("id", row.id)
+      .single();
+    if (error) setNotice(error.message);
+    else
+      setAdvancedRows((currentRows) => ({
+        ...currentRows,
+        [row.id]: data as Record<string, unknown>,
+      }));
+    setAdvancedLoadingId("");
+  }
+
+  async function saveAllFields(
+    event: FormEvent<HTMLFormElement>,
+    row: ControlRow,
+  ) {
+    event.preventDefault();
+    const original = advancedRows[row.id];
+    if (!original) return;
+    setBusyId(row.id);
+    setNotice("");
+    const formData = new FormData(event.currentTarget);
+    const changes: Record<string, unknown> = {};
+    try {
+      Object.entries(original).forEach(([key, originalValue]) => {
+        if (technicalFields.has(key) || !formData.has(key)) return;
+        const entered = String(formData.get(key) ?? "");
+        if (typeof originalValue === "boolean")
+          changes[key] = entered === "true";
+        else if (typeof originalValue === "number")
+          changes[key] = entered === "" ? null : Number(entered);
+        else if (originalValue && typeof originalValue === "object")
+          changes[key] = entered.trim() ? JSON.parse(entered) : null;
+        else changes[key] = entered === "" ? null : entered;
+      });
+    } catch {
+      setNotice("Un champ JSON n’est pas correctement formaté.");
+      setBusyId("");
+      return;
+    }
+    const { data, error } = await supabase.rpc("super_admin_update_resource", {
+      resource_type: resource,
+      target_id: row.id,
+      changes,
+    });
+    if (error) setNotice(error.message);
+    else {
+      setAdvancedRows((currentRows) => ({
+        ...currentRows,
+        [row.id]: data as Record<string, unknown>,
+      }));
+      setNotice(
+        `Tous les champs métier de « ${row.reference} » ont été enregistrés et journalisés.`,
+      );
+    }
+    setBusyId("");
+  }
+
   async function remove(row: ControlRow) {
     const typed = window.prompt(
       `Suppression définitive et journalisée. Tapez exactement ${row.reference} pour confirmer.`,
@@ -467,6 +574,63 @@ export default function SuperAdminDataCenter({
                     Supprimer définitivement
                   </button>
                 </form>
+                <div className="advancedAdminEditor">
+                  {!advancedRows[row.id] ? (
+                    <button
+                      type="button"
+                      className="secondaryButton"
+                      disabled={advancedLoadingId === row.id}
+                      onClick={() => void loadAllFields(row)}
+                    >
+                      {advancedLoadingId === row.id
+                        ? "Chargement…"
+                        : "Modifier tous les champs métier"}
+                    </button>
+                  ) : (
+                    <form
+                      className="advancedFieldsForm"
+                      onSubmit={(event) => saveAllFields(event, row)}
+                    >
+                      <h4>Édition complète et sécurisée</h4>
+                      <p>
+                        Les identifiants, empreintes, signatures et fichiers
+                        physiques restent protégés. Tous les autres champs sont
+                        modifiables ci-dessous.
+                      </p>
+                      {Object.entries(advancedRows[row.id])
+                        .filter(([key]) => !technicalFields.has(key))
+                        .map(([key, value]) => (
+                          <label key={key}>
+                            {key}
+                            {typeof value === "boolean" ? (
+                              <select name={key} defaultValue={String(value)}>
+                                <option value="true">Oui</option>
+                                <option value="false">Non</option>
+                              </select>
+                            ) : typeof value === "number" ? (
+                              <input
+                                name={key}
+                                type="number"
+                                defaultValue={value}
+                              />
+                            ) : (
+                              <textarea
+                                name={key}
+                                defaultValue={
+                                  value && typeof value === "object"
+                                    ? JSON.stringify(value, null, 2)
+                                    : String(value ?? "")
+                                }
+                              />
+                            )}
+                          </label>
+                        ))}
+                      <button disabled={busyId === row.id}>
+                        Enregistrer tous les champs
+                      </button>
+                    </form>
+                  )}
+                </div>
               </div>
             </details>
           ))
