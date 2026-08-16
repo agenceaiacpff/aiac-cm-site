@@ -11,6 +11,7 @@ import HierarchicalValidationPanel from "@/components/HierarchicalValidationPane
 import InstitutionalReportsCenter from "@/components/InstitutionalReportsCenter";
 import UniversalTaskReporter from "@/components/UniversalTaskReporter";
 import ProgramCycleManagementConsole from "@/components/ProgramCycleManagementConsole";
+import ProgramCycleNotificationsSummary from "@/components/ProgramCycleNotificationsSummary";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import { roleLabels } from "@/components/AccountsPanel";
 import type {
@@ -91,59 +92,28 @@ export default function ProgramCyclePortal(props: Props) {
     <div className="portalShell">
       <ProgramCycleContextBridge />
       <aside className="portalSidebar">
-        <a href="/nouveau-site/index.html" className="portalBrand">
-          <img src="/aiac-logo.bmp" alt="AIAC" />
-          <span><b>AIAC</b><small>Site public</small></span>
-        </a>
-        <div className="portalIdentity">
-          <span aria-hidden="true">{(props.profile.full_name || props.profile.email || "A").charAt(0).toUpperCase()}</span>
-          <div><b>{props.profile.full_name || "Membre AIAC"}</b><small>{roleLabels[props.profile.role] || props.profile.role}</small></div>
-        </div>
-        <nav>
-          {links.filter(([id]) => {
-            if (["operations", "institution", "documents", "contenus"].includes(id)) return isStaff;
-            if (id === "administration") return isAdmin;
-            if (["data-control", "audit"].includes(id)) return isSuperAdmin;
-            return true;
-          }).map(([id, label]) => (
-            <button type="button" key={id} className={id === "terrain" ? "active" : ""} onClick={() => openTab(id)}><span>{label}</span></button>
-          ))}
-        </nav>
+        <a href="/nouveau-site/index.html" className="portalBrand"><img src="/aiac-logo.bmp" alt="AIAC" /><span><b>AIAC</b><small>Site public</small></span></a>
+        <div className="portalIdentity"><span aria-hidden="true">{(props.profile.full_name || props.profile.email || "A").charAt(0).toUpperCase()}</span><div><b>{props.profile.full_name || "Membre AIAC"}</b><small>{roleLabels[props.profile.role] || props.profile.role}</small></div></div>
+        <nav>{links.filter(([id]) => {
+          if (["operations", "institution", "documents", "contenus"].includes(id)) return isStaff;
+          if (id === "administration") return isAdmin;
+          if (["data-control", "audit"].includes(id)) return isSuperAdmin;
+          return true;
+        }).map(([id, label]) => <button type="button" key={id} className={id === "terrain" ? "active" : ""} onClick={() => openTab(id)}><span>{label}</span></button>)}</nav>
         <a className="publicSiteLink" href="/nouveau-site/index.html">Voir le site public</a>
         <button className="logout" onClick={logout}>Se déconnecter</button>
       </aside>
       <main className="portalMain">
-        <header>
-          <div><p className="eyebrow">{roleLabels[props.profile.role] || props.profile.role}</p><h1>Gestion complète du cycle des programmes</h1></div>
-          <span className={`status ${props.profile.status}`}>{props.profile.status === "active" ? "Compte actif" : props.profile.status}</span>
-        </header>
+        <header><div><p className="eyebrow">{roleLabels[props.profile.role] || props.profile.role}</p><h1>Gestion complète du cycle des programmes</h1></div><span className={`status ${props.profile.status}`}>{props.profile.status === "active" ? "Compte actif" : props.profile.status}</span></header>
 
+        <ProgramCycleNotificationsSummary profileId={props.profile.id} />
         <AgentTaskInbox />
         <UniversalTaskReporter />
-        <ProgramCycleManagementConsole
-          profile={props.profile as OperationProfile}
-          programs={props.programs}
-          projects={props.projects}
-          activities={props.activities}
-          projectMembers={props.projectMembers}
-          staffProfiles={props.staffProfiles}
-          bodies={props.bodies}
-        />
-        <HierarchicalValidationPanel
-          profile={props.profile as OperationProfile}
-          signatureAssets={props.institutionalSignatureAssets}
-        />
-        <CollectiveValidationPanel
-          profile={props.profile as OperationProfile}
-          reports={props.initialTaskReports}
-          approvals={props.initialApprovals}
-          bodies={props.bodies}
-          signatureAssets={props.institutionalSignatureAssets}
-        />
+        <ProgramCycleManagementConsole profile={props.profile as OperationProfile} programs={props.programs} projects={props.projects} activities={props.activities} projectMembers={props.projectMembers} staffProfiles={props.staffProfiles} bodies={props.bodies} />
+        <HierarchicalValidationPanel profile={props.profile as OperationProfile} signatureAssets={props.institutionalSignatureAssets} />
+        <CollectiveValidationPanel profile={props.profile as OperationProfile} reports={props.initialTaskReports} approvals={props.initialApprovals} bodies={props.bodies} signatureAssets={props.institutionalSignatureAssets} />
         <InstitutionalReportsCenter />
-        <div className={styles.legacyCycle}>
-          <HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} />
-        </div>
+        <div className={styles.legacyCycle}><HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} /></div>
       </main>
     </div>
   );
