@@ -31,7 +31,9 @@ export default function PortalTabNavigator({ activeTab }: { activeTab: string })
       if (!tab || tab === activeTab) return;
       event.preventDefault();
       event.stopPropagation();
-      window.location.assign(`/espace?tab=${encodeURIComponent(tab)}`);
+      window.location.assign(
+        tab === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(tab)}`,
+      );
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
