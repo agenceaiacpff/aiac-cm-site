@@ -333,6 +333,9 @@ export default function PortalClientV2({
           const incoming = payload.new as NotificationRow;
           setNotifications((items) => [incoming, ...items.filter((item) => item.id !== incoming.id)]);
           setNotice(`Nouvelle notification : ${incoming.title}`);
+          if (["message", "message_access", "message_admin"].includes(incoming.category || "")) {
+            void refreshUnreadMessageCounts();
+          }
         },
       )
       .on(
@@ -343,7 +346,10 @@ export default function PortalClientV2({
           setNotifications((items) => items.map((item) => (item.id === incoming.id ? incoming : item)));
         },
       )
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, () => {
+      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, () => {
+        void refreshUnreadMessageCounts();
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "message_reads", filter: `user_id=eq.${profile.id}` }, () => {
         void refreshUnreadMessageCounts();
       })
       .on(
