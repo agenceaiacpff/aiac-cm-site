@@ -83,7 +83,7 @@ export default function ProgramCyclePortal(props: Props) {
   }
 
   function openTab(id: string) {
-    window.location.assign(id === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(id)}`);
+    router.push(id === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(id)}`);
   }
 
   return (
@@ -127,7 +127,7 @@ export default function ProgramCyclePortal(props: Props) {
         <header>
           <div>
             <p className="eyebrow">{roleLabels[props.profile.role] || props.profile.role}</p>
-            <h1>Cycle des programmes</h1>
+            <h1>Gestion complète du cycle des programmes</h1>
           </div>
           <span className={`status ${props.profile.status}`}>
             {props.profile.status === "active" ? "Compte actif" : props.profile.status}
