@@ -25,6 +25,20 @@ async function setHierarchySelect(labelPrefix: string, value: string) {
   }
 }
 
+async function openReportingSection() {
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const buttons = Array.from(document.querySelectorAll(".fieldReporting .operationNav button"));
+    const button = buttons.find((item) => item.textContent?.includes("Saisir et suivre"));
+    if (button instanceof HTMLButtonElement) {
+      button.click();
+      await wait(150);
+      document.querySelector(".officialReportDetail")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    await wait(100);
+  }
+}
+
 export default function ProgramCycleContextBridge() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -33,15 +47,22 @@ export default function ProgramCycleContextBridge() {
     const project = params.get("project") || "";
     const activity = params.get("activity") || "";
     const task = params.get("task") || "";
-    if (!body) return;
+    const mode = params.get("mode") || "";
+    const report = params.get("report") || "";
 
     void (async () => {
-      await setHierarchySelect("Organe", body);
-      await setHierarchySelect("Programme", program);
-      await setHierarchySelect("Projet", project);
-      await setHierarchySelect("Activité", activity);
-      await setHierarchySelect("Tâche", task);
-      document.querySelector(".hierarchicalCycle")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      if (body) {
+        await setHierarchySelect("Organe", body);
+        await setHierarchySelect("Programme", program);
+        await setHierarchySelect("Projet", project);
+        await setHierarchySelect("Activité", activity);
+        await setHierarchySelect("Tâche", task);
+      }
+      if (mode === "report" || report) {
+        await openReportingSection();
+      } else if (body) {
+        document.querySelector(".hierarchicalCycle")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
     })();
   }, []);
 
