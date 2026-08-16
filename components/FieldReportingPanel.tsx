@@ -12,7 +12,17 @@ export default function FieldReportingPanel(props: any) {
   return (
     <>
       {props?.profile ? <ReportSignatureCenter profile={props.profile} /> : null}
-      <FieldReportingPanelHeavy {...props} />
+      <style>{`
+        /* Les anciens formulaires signaient sans mémoriser le choix des cachets.
+           Ils restent dans le code historique pour l'édition des dossiers mais
+           ne constituent plus une voie de signature ou d'export officielle. */
+        .legacyReportingCore .signatureBox,
+        .legacyReportingCore .reviewForm,
+        .legacyReportingCore .exportActions { display: none !important; }
+      `}</style>
+      <div className="legacyReportingCore">
+        <FieldReportingPanelHeavy {...props} />
+      </div>
     </>
   );
 }
