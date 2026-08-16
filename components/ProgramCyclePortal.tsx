@@ -138,6 +138,7 @@ export default function ProgramCyclePortal(props: Props) {
         <CollectiveValidationPanel
           profile={props.profile as OperationProfile}
           reports={props.initialTaskReports}
+          approvals={props.initialApprovals}
           bodies={props.bodies}
           signatureAssets={props.institutionalSignatureAssets}
         />
