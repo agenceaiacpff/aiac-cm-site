@@ -67,7 +67,7 @@ export default function ProgramCycleLandingPortal({ profile }: { profile: Accoun
 
         <div className="portalPanel fieldHero">
           <div><p className="eyebrow">Entrée rapide</p><h2>Exécution et rapports de tâches</h2><p>Cette page ne charge pas le module administratif complet. Commencez directement par rapporter une tâche ou consulter les tâches qui vous ont été affectées.</p></div>
-          <div className="reportActions"><button type="button" onClick={() => router.push("/espace/terrain/complet")}>Ouvrir la gestion complète du cycle</button></div>
+          {isStaff && <div className="reportActions"><button type="button" onClick={() => router.push("/espace/terrain/complet")}>Ouvrir la gestion complète du cycle</button></div>}
         </div>
 
         <UniversalTaskReporter />
