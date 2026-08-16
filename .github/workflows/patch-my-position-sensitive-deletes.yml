@@ -1,5 +1,5 @@
 name: Patch My Position sensitive deletes
-'on':
+on:
   push:
     paths:
       - '.github/workflows/patch-my-position-sensitive-deletes.yml'
@@ -16,12 +16,12 @@ jobs:
           from pathlib import Path
           p=Path('components/MyPositionWorkspaceV3.tsx')
           s=p.read_text()
-          replacements={
-'''const audit=await supabase.from("audit_logs").insert({actor_id:workspace?.profile.id,action:"gender_analysis.deleted",entity_type:"gender_analysis",entity_id:g.id,details:{reason,reference:g.reference_code}});err(audit.error);const r=await supabase.from("gender_analysis_records").delete().eq("id",g.id);err(r.error);return true;''':'''const r=await supabase.rpc("delete_gender_analysis_admin",{target_id:g.id,target_reason:reason});err(r.error);return true;''',
-'''const audit=await supabase.from("audit_logs").insert({actor_id:workspace?.profile.id,action:"beneficiary.deleted",entity_type:"beneficiary",entity_id:b.id,details:{reason,reference:b.reference_code}});err(audit.error);const r=await supabase.from("beneficiaries").delete().eq("id",b.id);err(r.error);return true;''':'''const r=await supabase.rpc("delete_beneficiary_admin",{target_id:b.id,target_reason:reason});err(r.error);return true;''',
-'''const audit=await supabase.from("audit_logs").insert({actor_id:workspace?.profile.id,action:"case.deleted_by_superadmin",entity_type:"case_file",entity_id:c.id,details:{reason,case_number:c.case_number}});err(audit.error);const r=await supabase.from("case_files").delete().eq("id",c.id);err(r.error);return true;''':'''const r=await supabase.rpc("delete_case_admin",{target_id:c.id,target_reason:reason});err(r.error);return true;'''
-          }
-          for old,new in replacements.items():
+          pairs=[
+            ('const audit=await supabase.from("audit_logs").insert({actor_id:workspace?.profile.id,action:"gender_analysis.deleted",entity_type:"gender_analysis",entity_id:g.id,details:{reason,reference:g.reference_code}});err(audit.error);const r=await supabase.from("gender_analysis_records").delete().eq("id",g.id);err(r.error);return true;','const r=await supabase.rpc("delete_gender_analysis_admin",{target_id:g.id,target_reason:reason});err(r.error);return true;'),
+            ('const audit=await supabase.from("audit_logs").insert({actor_id:workspace?.profile.id,action:"beneficiary.deleted",entity_type:"beneficiary",entity_id:b.id,details:{reason,reference:b.reference_code}});err(audit.error);const r=await supabase.from("beneficiaries").delete().eq("id",b.id);err(r.error);return true;','const r=await supabase.rpc("delete_beneficiary_admin",{target_id:b.id,target_reason:reason});err(r.error);return true;'),
+            ('const audit=await supabase.from("audit_logs").insert({actor_id:workspace?.profile.id,action:"case.deleted_by_superadmin",entity_type:"case_file",entity_id:c.id,details:{reason,case_number:c.case_number}});err(audit.error);const r=await supabase.from("case_files").delete().eq("id",c.id);err(r.error);return true;','const r=await supabase.rpc("delete_case_admin",{target_id:c.id,target_reason:reason});err(r.error);return true;')
+          ]
+          for old,new in pairs:
               if old not in s: raise SystemExit('sensitive deletion anchor missing')
               s=s.replace(old,new,1)
           p.write_text(s)
