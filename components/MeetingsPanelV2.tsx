@@ -7,7 +7,8 @@ import styles from "./MeetingsPanelV2.module.css";
 
 type Profile={id:string;role:string;full_name?:string|null;email?:string|null};
 type Meeting=MeetingRow&{minutes?:string|null;decisions?:string|null;follow_up_actions?:string|null;minutes_recorded_at?:string|null;minutes_recorded_by?:string|null};
-type Guest=MeetingGuestRow&{attendance_status?:string};
+type Participant=MeetingParticipantRow&{email_error?:string|null};
+type Guest=MeetingGuestRow&{attendance_status?:string;email_error?:string|null;responded_at?:string|null};
 type Props={profile:Profile;initialMeetings:MeetingRow[];initialParticipants:MeetingParticipantRow[];initialGuests:MeetingGuestRow[];recipients:MeetingDirectoryEntry[];bodies:MeetingBodyEntry[];projects:MeetingProjectEntry[];initialSelectedId?:string|null};
 type EmailKind="invitation"|"reminder"|"update"|"cancelled";
 type EmailResult={ok?:boolean;configured?:boolean;sent?:number;failed?:number;message?:string};
@@ -36,14 +37,14 @@ function PersonPicker({recipients,selected,onChange,excludeId,label}:{recipients
 }
 
 export default function MeetingsPanelV2({profile,initialMeetings,initialParticipants,initialGuests,recipients,bodies,projects,initialSelectedId}:Props){
- const supabase=useMemo(()=>createClient(),[]);const [meetings,setMeetings]=useState<Meeting[]>(initialMeetings as Meeting[]);const [participants,setParticipants]=useState<MeetingParticipantRow[]>(initialParticipants);const [guests,setGuests]=useState<Guest[]>(initialGuests as Guest[]);const [notice,setNotice]=useState("");const [isError,setIsError]=useState(false);const [busy,setBusy]=useState("");const [openId,setOpenId]=useState(initialSelectedId||"");const [query,setQuery]=useState("");const [view,setView]=useState("all");const [statusFilter,setStatusFilter]=useState("all");
+ const supabase=useMemo(()=>createClient(),[]);const [meetings,setMeetings]=useState<Meeting[]>(initialMeetings as Meeting[]);const [participants,setParticipants]=useState<Participant[]>(initialParticipants as Participant[]);const [guests,setGuests]=useState<Guest[]>(initialGuests as Guest[]);const [notice,setNotice]=useState("");const [isError,setIsError]=useState(false);const [busy,setBusy]=useState("");const [openId,setOpenId]=useState(initialSelectedId||"");const [query,setQuery]=useState("");const [view,setView]=useState("all");const [statusFilter,setStatusFilter]=useState("all");
  const [createSelected,setCreateSelected]=useState<string[]>([]);const [createAudience,setCreateAudience]=useState("invite_only");const [createModality,setCreateModality]=useState("online");const [createProvider,setCreateProvider]=useState("jitsi");const [allowExternal,setAllowExternal]=useState(true);
  const [addSelected,setAddSelected]=useState<Record<string,string[]>>({});const [editOpen,setEditOpen]=useState<Record<string,boolean>>({});const selectedRef=useRef<HTMLDivElement|null>(null);
  const isAdmin=["admin","super_admin"].includes(profile.role);const canCreate=createRoles.has(profile.role);
  const directory=useMemo(()=>new Map(recipients.map(p=>[p.id,p])),[recipients]);
 
  function tell(message:string,error=false){setNotice(message);setIsError(error);if(message)window.setTimeout(()=>setNotice(current=>current===message?"":current),9000);}
- async function refresh(){const [{data:m,error:em},{data:p,error:ep},{data:g,error:eg}]=await Promise.all([supabase.from("meetings").select("*").order("starts_at",{ascending:false}),supabase.from("meeting_participants").select("*").order("invited_at"),supabase.from("meeting_guests").select("*").order("invited_at")]);const error=em||ep||eg;if(error){tell(`Actualisation impossible : ${error.message}`,true);return;}setMeetings((m||[]) as Meeting[]);setParticipants((p||[]) as MeetingParticipantRow[]);setGuests((g||[]) as Guest[]);}
+ async function refresh(){const [{data:m,error:em},{data:p,error:ep},{data:g,error:eg}]=await Promise.all([supabase.from("meetings").select("*").order("starts_at",{ascending:false}),supabase.from("meeting_participants").select("*").order("invited_at"),supabase.from("meeting_guests").select("*").order("invited_at")]);const error=em||ep||eg;if(error){tell(`Actualisation impossible : ${error.message}`,true);return;}setMeetings((m||[]) as Meeting[]);setParticipants((p||[]) as Participant[]);setGuests((g||[]) as Guest[]);}
  useEffect(()=>{const channel=supabase.channel(`meetings-v2-${profile.id}`).on("postgres_changes",{event:"*",schema:"public",table:"meetings"},()=>void refresh()).on("postgres_changes",{event:"*",schema:"public",table:"meeting_participants"},()=>void refresh()).on("postgres_changes",{event:"*",schema:"public",table:"meeting_guests"},()=>void refresh()).subscribe();return()=>{void supabase.removeChannel(channel);};},[profile.id,supabase]);
  useEffect(()=>{if(!initialSelectedId)return;setOpenId(initialSelectedId);window.setTimeout(()=>document.getElementById(`meeting-${initialSelectedId}`)?.scrollIntoView({behavior:"smooth",block:"start"}),250);},[initialSelectedId]);
 
