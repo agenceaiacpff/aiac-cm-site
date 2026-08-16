@@ -12,7 +12,9 @@ const labelToTab: Record<string, string> = {
   "Mon profil": "profil",
   "Cycle des programmes": "terrain",
   "Gestion opérationnelle": "operations",
+  "Demandes et interventions": "operations",
   "Gestion institutionnelle": "institution",
+  "Gouvernance et membres": "institution",
   "Documents sécurisés": "documents",
   "Publications du site": "contenus",
   "Comptes et accès": "administration",
@@ -25,6 +27,14 @@ export default function PortalTabNavigator({ activeTab }: { activeTab: string })
     if (activeTab === "terrain" && window.location.pathname === "/espace") {
       window.location.replace("/espace/terrain");
       return;
+    }
+
+    for (const button of Array.from(document.querySelectorAll(".portalSidebar nav button"))) {
+      const span = button.querySelector("span");
+      if (!span) continue;
+      const label = span.textContent?.trim();
+      if (label === "Gestion opérationnelle") span.textContent = "Demandes et interventions";
+      if (label === "Gestion institutionnelle") span.textContent = "Gouvernance et membres";
     }
 
     const onClick = (event: MouseEvent) => {
