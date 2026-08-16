@@ -85,6 +85,7 @@ import FieldReportingPanel, {
   TaskReportRow,
 } from "@/components/FieldReportingPanel";
 import SuperAdminDataCenter from "@/components/SuperAdminDataCenter";
+import type { InstitutionalSignatureAsset } from "@/lib/institutional-signatures";
 
 type UnreadMessageCountRow = { conversation_id: string; unread_count: number };
 type RealtimePayload = { new: unknown };
@@ -172,6 +173,7 @@ export default function PortalClient({
   initialTaskReportIndicators,
   initialTaskReportApprovals,
   initialTaskReportEvents,
+  initialInstitutionalSignatureAssets,
 }: {
   profile: AccountProfile;
   initialRequests: RequestRow[];
@@ -234,6 +236,7 @@ export default function PortalClient({
   initialTaskReportIndicators: TaskReportIndicatorRow[];
   initialTaskReportApprovals: TaskReportApprovalRow[];
   initialTaskReportEvents: TaskReportEventRow[];
+  initialInstitutionalSignatureAssets: InstitutionalSignatureAsset[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
@@ -900,6 +903,7 @@ export default function PortalClient({
             initialIndicators={initialTaskReportIndicators}
             initialApprovals={initialTaskReportApprovals}
             initialEvents={initialTaskReportEvents}
+            institutionalSignatureAssets={initialInstitutionalSignatureAssets}
           />
         )}
         {tab === "institution" && isStaff && (
@@ -950,6 +954,7 @@ export default function PortalClient({
             initialPermissionOverrides={initialPermissionOverrides}
             initialAccountScopes={initialAccountScopes}
             initialSessions={initialSessionActivity}
+            initialSignatureAssets={initialInstitutionalSignatureAssets}
           />
         )}
         {tab === "data-control" && isSuperAdmin && (
