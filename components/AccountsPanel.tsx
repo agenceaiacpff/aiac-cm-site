@@ -97,7 +97,7 @@ export default function AccountsPanel({
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
   const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);\n  const [pendingAssetRevocationId, setPendingAssetRevocationId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const isSuperAdmin = currentProfile.role === "super_admin";
 
   const filtered = profiles.filter((item) => {
@@ -256,11 +256,12 @@ export default function AccountsPanel({
   }
 
   async function revokeInstitutionalAsset(asset:InstitutionalSignatureAsset){
+    if(!window.confirm(`Révoquer « ${institutionalAssetLabels[asset.asset_type]} » ? Les anciens rapports conserveront leur traçabilité.`))return;
     setBusy(true);const {data:updated,error}=await supabase.rpc("revoke_institutional_signature_asset",{target_asset_id:asset.id});
     if(error||!updated)setNotice(error?.message||"Révocation impossible");else{
       setSignatureAssets(rows=>rows.map(row=>row.id===asset.id?updated as InstitutionalSignatureAsset:row));
       setNotice("Actif institutionnel révoqué. Le fichier historique est conservé dans le stockage privé.");
-    }setPendingAssetRevocationId(null);setBusy(false);
+    }setBusy(false);
   }
 
   return (
