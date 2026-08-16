@@ -23,6 +23,14 @@ const labelToTab: Record<string, string> = {
   "Journal d’audit": "audit",
 };
 
+const localTabs = new Set(["accueil", "notifications", "annonces", "profil"]);
+
+function routeFor(tab: string) {
+  if (tab === "terrain") return "/espace/terrain";
+  if (tab === "accueil") return "/espace";
+  return `/espace?tab=${encodeURIComponent(tab)}`;
+}
+
 export default function PortalTabNavigator({ activeTab }: { activeTab: string }) {
   const router = useRouter();
 
@@ -40,19 +48,44 @@ export default function PortalTabNavigator({ activeTab }: { activeTab: string })
       if (label === "Gestion institutionnelle") span.textContent = "Gouvernance et membres";
     }
 
-    const onClick = (event: MouseEvent) => {
+    const identify = (event: Event) => {
       const target = event.target as Element | null;
       const button = target?.closest(".portalSidebar nav button");
-      if (!(button instanceof HTMLButtonElement)) return;
+      if (!(button instanceof HTMLButtonElement)) return null;
       const label = button.querySelector("span")?.textContent?.trim() || "";
       const tab = labelToTab[label];
-      if (!tab || tab === activeTab) return;
+      return tab ? { button, tab } : null;
+    };
+
+    const onPointerOver = (event: PointerEvent) => {
+      const match = identify(event);
+      if (!match || localTabs.has(match.tab) || match.tab === activeTab) return;
+      router.prefetch(routeFor(match.tab));
+    };
+
+    const onClick = (event: MouseEvent) => {
+      const match = identify(event);
+      if (!match) return;
+      const { tab } = match;
+
+      if (localTabs.has(tab)) {
+        // Ces écrans utilisent déjà les données présentes en mémoire : pas de trajet serveur.
+        window.history.replaceState({}, "", routeFor(tab));
+        return;
+      }
+
+      if (tab === activeTab) return;
       event.preventDefault();
       event.stopPropagation();
-      router.push(tab === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(tab)}`);
+      router.push(routeFor(tab));
     };
+
+    document.addEventListener("pointerover", onPointerOver, true);
     document.addEventListener("click", onClick, true);
-    return () => document.removeEventListener("click", onClick, true);
+    return () => {
+      document.removeEventListener("pointerover", onPointerOver, true);
+      document.removeEventListener("click", onClick, true);
+    };
   }, [activeTab, router]);
 
   return null;
