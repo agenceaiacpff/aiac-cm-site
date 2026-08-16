@@ -315,14 +315,13 @@ export default function PortalClientV2({
   }, [supabase]);
 
   const refreshMeetingOverview = useCallback(async () => {
-    if (tab !== "reunions") return;
     const [{ data: meetingRows }, { data: participantRows }] = await Promise.all([
       supabase.from("meetings").select("*").order("starts_at"),
       supabase.from("meeting_participants").select("*").order("invited_at"),
     ]);
     if (meetingRows) setMeetingOverview(meetingRows as MeetingRow[]);
     if (participantRows) setMeetingInvitationOverview(participantRows as MeetingParticipantRow[]);
-  }, [supabase, tab]);
+  }, [supabase]);
 
   useEffect(() => {
     const channel = supabase
