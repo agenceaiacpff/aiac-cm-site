@@ -109,7 +109,7 @@ export default function ProgramCyclePortal(props: Props) {
         <ProgramCycleNotificationsSummary profileId={props.profile.id} />
         <AgentTaskInbox />
         <UniversalTaskReporter />
-        <ProgramCycleManagementConsole profile={props.profile as OperationProfile} programs={props.programs} projects={props.projects} activities={props.activities} projectMembers={props.projectMembers} staffProfiles={props.staffProfiles} bodies={props.bodies} />
+        {isStaff && <ProgramCycleManagementConsole profile={props.profile as OperationProfile} programs={props.programs} projects={props.projects} activities={props.activities} projectMembers={props.projectMembers} staffProfiles={props.staffProfiles} bodies={props.bodies} />}
         <HierarchicalValidationPanel profile={props.profile as OperationProfile} signatureAssets={props.institutionalSignatureAssets} />
         <CollectiveValidationPanel profile={props.profile as OperationProfile} reports={props.initialTaskReports} approvals={props.initialApprovals} bodies={props.bodies} signatureAssets={props.institutionalSignatureAssets} />
         <InstitutionalReportsCenter />
