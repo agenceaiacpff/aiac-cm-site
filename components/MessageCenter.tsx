@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 
+// Messagerie V2 auditée : contrôles complets, recherche, notifications, droits et administration MFA.
 const MessageCenter = dynamic(() => import("./MessageCenterV2"), {
   loading: () => <div className="portalPanel"><p>Chargement de la messagerie sécurisée…</p></div>,
 });
