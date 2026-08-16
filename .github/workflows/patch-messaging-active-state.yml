@@ -1,0 +1,46 @@
+name: Patch messaging active state
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-messaging-active-state.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch active conversation state
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('components/MessageCenterV2.tsx')
+          s=p.read_text()
+          anchor=' useEffect(()=>{if(!activeId){setDraft("");return;}try{setDraft(localStorage.getItem(`aiac-message-draft:${activeId}`)||"");}catch{setDraft("");}},[activeId]);\n'
+          addition=' useEffect(()=>{setReplyTo(null);setEditingId(null);setEditBody("");setEditReason("");setMessageQuery("");setMessageSearchResults(null);setParticipantQuery("");setAddQuery("");setAddUserId("");setShowPinnedOnly(false);setMeetingId(null);},[activeId]);\n'
+          if anchor not in s:
+              raise SystemExit('active state anchor not found')
+          s=s.replace(anchor,anchor+addition,1)
+          old='<form className={styles.form} onSubmit={updateSettings}>'
+          new='<form key={`settings-${active.id}`} className={styles.form} onSubmit={updateSettings}>'
+          if old not in s:
+              raise SystemExit('settings form anchor not found')
+          s=s.replace(old,new,1)
+          old2='<form className={styles.form} onSubmit={createMeeting}>'
+          new2='<form key={`meeting-${active.id}`} className={styles.form} onSubmit={createMeeting}>'
+          if old2 not in s:
+              raise SystemExit('meeting form anchor not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+          PY
+      - name: Remove one-shot workflow and commit
+        run: |
+          git rm .github/workflows/patch-messaging-active-state.yml
+          git config user.name "agenceaiacpff"
+          git config user.email "84762273+agenceaiacpff@users.noreply.github.com"
+          git add components/MessageCenterV2.tsx
+          git commit -m "Reset messaging UI state between conversations"
+          git push
