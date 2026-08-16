@@ -22,6 +22,11 @@ const labelToTab: Record<string, string> = {
 
 export default function PortalTabNavigator({ activeTab }: { activeTab: string }) {
   useEffect(() => {
+    if (activeTab === "terrain" && window.location.pathname === "/espace") {
+      window.location.replace("/espace/terrain");
+      return;
+    }
+
     const onClick = (event: MouseEvent) => {
       const target = event.target as Element | null;
       const button = target?.closest(".portalSidebar nav button");
