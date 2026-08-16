@@ -153,9 +153,8 @@ export default function AccountsPanel({
 
   async function assignPosition(event:FormEvent<HTMLFormElement>,account:AccountProfile){
     event.preventDefault();setBusy(true);const form=event.currentTarget;const data=new FormData(form);
-    const payload={position_id:String(data.get("position_id")),body_id:String(data.get("body_id")),profile_id:account.id,territory:String(data.get("territory")||"").trim()||null,decision_reference:String(data.get("decision_reference")||"").trim(),start_date:data.get("start_date"),appointed_by:currentProfile.id};
-    const {data:created,error}=await supabase.from("position_assignments").insert(payload).select().single();
-    if(error||!created)setNotice(error?.message||"Affectation impossible");else{setAssignments(rows=>[created as PositionAssignmentRow,...rows]);form.reset();setNotice("Poste rattaché à l’organe, au territoire et à la décision de nomination.");}setBusy(false);
+    const {data:created,error}=await supabase.rpc("assign_profile_to_position_definition",{target_position_id:String(data.get("position_id")),target_body_id:String(data.get("body_id")),target_profile_id:account.id,target_decision_reference:String(data.get("decision_reference")||"").trim(),target_start_date:String(data.get("start_date")||"")||null});
+    if(error||!created)setNotice(error?.message||"Affectation impossible");else{form.reset();setNotice("Affectation enregistrée via le moteur institutionnel. Le poste, la hiérarchie, les droits et la notification sont synchronisés.");}setBusy(false);
   }
 
   async function createOrInviteAccount(event:FormEvent<HTMLFormElement>){

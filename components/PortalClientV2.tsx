@@ -138,6 +138,7 @@ function countLabel(count: number) {
 
 function routeFor(tab: string) {
   if (tab === "terrain") return "/espace/terrain";
+  if (tab === "poste") return "/espace/poste";
   if (tab === "accueil") return "/espace";
   return `/espace?tab=${encodeURIComponent(tab)}`;
 }
@@ -289,6 +290,7 @@ export default function PortalClientV2({
   const isStaff = ["staff", "manager", "admin", "super_admin"].includes(profile.role);
   const isAdmin = ["admin", "super_admin"].includes(profile.role);
   const isSuperAdmin = profile.role === "super_admin";
+  const hasActivePosition = initialPositionAssignments.some((item) => item.profile_id === profile.id && item.status === "active");
 
   useEffect(() => setRequests(initialRequests), [initialRequests]);
   useEffect(() => setNotifications(initialNotifications), [initialNotifications]);
@@ -497,6 +499,7 @@ export default function PortalClientV2({
 
   const navItems: Array<[string, string]> = [
     ["accueil", "Tableau de bord"],
+    ...((hasActivePosition || isSuperAdmin) ? [["poste", "Mon poste"] as [string, string]] : []),
     ["reunions", "Réunions et agenda"],
     ["demandes", "Mes demandes"],
     ["messages", "Messagerie"],
