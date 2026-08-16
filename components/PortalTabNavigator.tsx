@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 const labelToTab: Record<string, string> = {
   "Tableau de bord": "accueil",
@@ -23,9 +24,11 @@ const labelToTab: Record<string, string> = {
 };
 
 export default function PortalTabNavigator({ activeTab }: { activeTab: string }) {
+  const router = useRouter();
+
   useEffect(() => {
     if (activeTab === "terrain" && window.location.pathname === "/espace") {
-      window.location.replace("/espace/terrain");
+      router.replace("/espace/terrain");
       return;
     }
 
@@ -46,13 +49,11 @@ export default function PortalTabNavigator({ activeTab }: { activeTab: string })
       if (!tab || tab === activeTab) return;
       event.preventDefault();
       event.stopPropagation();
-      window.location.assign(
-        tab === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(tab)}`,
-      );
+      router.push(tab === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(tab)}`);
     };
     document.addEventListener("click", onClick, true);
     return () => document.removeEventListener("click", onClick, true);
-  }, [activeTab]);
+  }, [activeTab, router]);
 
   return null;
 }
