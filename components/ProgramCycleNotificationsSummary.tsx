@@ -17,6 +17,7 @@ type NotificationRow = {
   read_at: string | null;
   created_at: string;
 };
+type RealtimePayload = { new: unknown };
 
 const cycleEntities = new Set(["task_report", "activity_task", "activity", "project", "program"]);
 function isCycle(item: NotificationRow) {
@@ -47,11 +48,11 @@ export default function ProgramCycleNotificationsSummary({ profileId }: { profil
 
     const channel = supabase
       .channel(`program-cycle-notifications:${profileId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${profileId}` }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${profileId}` }, (payload: RealtimePayload) => {
         const incoming = payload.new as NotificationRow;
         if (isCycle(incoming)) setItems((current) => [incoming, ...current.filter((item) => item.id !== incoming.id)]);
       })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${profileId}` }, (payload) => {
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "notifications", filter: `user_id=eq.${profileId}` }, (payload: RealtimePayload) => {
         const incoming = payload.new as NotificationRow;
         if (isCycle(incoming)) setItems((current) => current.map((item) => item.id === incoming.id ? incoming : item));
       })
