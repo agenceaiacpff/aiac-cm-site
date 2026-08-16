@@ -4,6 +4,8 @@ import { useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import HierarchicalProgramCycle from "@/components/HierarchicalProgramCycle";
+import AgentTaskInbox from "@/components/AgentTaskInbox";
+import ProgramCycleContextBridge from "@/components/ProgramCycleContextBridge";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import { roleLabels } from "@/components/AccountsPanel";
 import type {
@@ -86,6 +88,7 @@ export default function ProgramCyclePortal(props: Props) {
 
   return (
     <div className="portalShell">
+      <ProgramCycleContextBridge />
       <aside className="portalSidebar">
         <a href="/nouveau-site/index.html" className="portalBrand">
           <img src="/aiac-logo.bmp" alt="AIAC" />
@@ -130,6 +133,7 @@ export default function ProgramCyclePortal(props: Props) {
             {props.profile.status === "active" ? "Compte actif" : props.profile.status}
           </span>
         </header>
+        <AgentTaskInbox />
         <HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} />
       </main>
     </div>
