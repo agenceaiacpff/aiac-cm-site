@@ -1,3 +1,3 @@
 "use client";
 
-export { default } from "@/components/MyPositionWorkspaceV2";
+export { default } from "@/components/MyPositionWorkspaceV3";
