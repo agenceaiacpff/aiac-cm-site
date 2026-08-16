@@ -1003,6 +1003,26 @@ export default function FieldReportingPanel({
     setBusy(false);
   }
 
+  async function saveImportedReportHtml(report: TaskReportRow, html: string) {
+    const { data: updated, error } = await supabase
+      .from("task_reports")
+      .update({ rich_content_html: html })
+      .eq("id", report.id)
+      .select()
+      .single();
+    if (error || !updated) {
+      const message =
+        error?.message || "Le contenu HTML n’a pas pu être enregistré.";
+      setError(message);
+      throw new Error(message);
+    }
+    setRichHtmlDraft(html);
+    upsertReport(updated as TaskReportRow);
+    setNotice(
+      "Rapport HTML importé et enregistré. Il sera inclus dans tous les formats produits.",
+    );
+  }
+
   async function uploadFile(
     report: TaskReportRow,
     file: File,
@@ -1285,6 +1305,19 @@ export default function FieldReportingPanel({
     const data = new FormData(form);
     const signatureFile = data.get("signature_file");
     try {
+      const { data: savedReport, error: saveError } = await supabase
+        .from("task_reports")
+        .update({ rich_content_html: richHtmlDraft })
+        .eq("id", report.id)
+        .select()
+        .single();
+      if (saveError || !savedReport)
+        throw (
+          saveError ||
+          new Error("Le corps du rapport n’a pas pu être enregistré.")
+        );
+      upsertReport(savedReport as TaskReportRow);
+
       let signaturePath: null | string = null;
       if (signatureFile instanceof File && signatureFile.size) {
         if (
@@ -1425,6 +1458,11 @@ export default function FieldReportingPanel({
     report: TaskReportRow,
     publicVersion: boolean,
   ) {
+    const outputReport =
+      report.id === selectedReportId &&
+      ["draft", "returned"].includes(report.status)
+        ? { ...report, rich_content_html: richHtmlDraft }
+        : report;
     const h = hierarchyForTask(report.task_id);
     const rows = attendance.filter((item) => item.report_id === report.id);
     const files = evidence.filter(
@@ -1453,7 +1491,7 @@ export default function FieldReportingPanel({
       report.girls_count +
       report.boys_count;
     const rich = pruneEmptyReportSections(
-      sanitizeRichHtml(report.rich_content_html || ""),
+      sanitizeRichHtml(outputReport.rich_content_html || ""),
     );
     const section = (
       title: string,
@@ -3146,6 +3184,9 @@ export default function FieldReportingPanel({
                 }
                 resetToken={`${report.id}-${report.updated_at}`}
                 onChange={setRichHtmlDraft}
+                onImported={(_metadata, html) =>
+                  saveImportedReportHtml(report, html)
+                }
                 allowInlineImages
                 htmlImportMode="editable"
                 placeholder="Rédigez chaque partie, collez depuis Word, ajoutez des tableaux ou insérez une photo à la position du curseur…"
