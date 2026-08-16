@@ -3,16 +3,37 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { TaskReportApprovalRow, TaskReportRow } from "@/components/FieldReportingPanel";
-import type { OperationBody, OperationProfile } from "@/components/OperationsPanel";
-import type { InstitutionalSignatureAsset } from "@/lib/institutional-signatures";
 
-type CollectiveTaskReport = TaskReportRow & {
+type Profile = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+};
+
+type Report = {
+  id: string;
+  report_number: string;
+  reporter_id: string;
+  status: string;
+  title: string | null;
+  summary: string;
+  revision: number;
+  current_hash: string | null;
   validation_authority_type?: string;
   validation_authority_body_id?: string | null;
 };
 
-type CollectiveApproval = TaskReportApprovalRow & {
+type Approval = {
+  id: string;
+  report_id: string;
+  actor_id: string;
+  actor_name: string;
+  actor_job_title: string | null;
+  decision: string;
+  comment: string | null;
+  content_hash: string;
+  signed_at: string;
+  created_at: string;
   authority_type?: string;
   authority_body_id?: string | null;
   authority_name?: string | null;
@@ -20,12 +41,22 @@ type CollectiveApproval = TaskReportApprovalRow & {
   decision_date?: string | null;
 };
 
+type Body = { id: string; name: string };
+
+type SignatureAsset = {
+  profile_id: string;
+  asset_type: string;
+  storage_path: string;
+  is_default: boolean;
+  status: string;
+};
+
 type Props = {
-  profile: OperationProfile;
-  reports: TaskReportRow[];
-  approvals: TaskReportApprovalRow[];
-  bodies: OperationBody[];
-  signatureAssets: InstitutionalSignatureAsset[];
+  profile: Profile;
+  reports: Report[];
+  approvals: Approval[];
+  bodies: Body[];
+  signatureAssets: SignatureAsset[];
 };
 
 type LastDecision = {
@@ -39,7 +70,8 @@ type LastDecision = {
 
 function formatDate(value: string | null | undefined) {
   if (!value) return "—";
-  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("fr-FR", {
+  const dateOnly = value.slice(0, 10);
+  return new Date(`${dateOnly}T12:00:00`).toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -55,8 +87,8 @@ export default function CollectiveValidationPanel({
 }: Props) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [pendingReports, setPendingReports] = useState<CollectiveTaskReport[]>(() =>
-    (reports as CollectiveTaskReport[]).filter(
+  const [pendingReports, setPendingReports] = useState<Report[]>(() =>
+    reports.filter(
       (report) =>
         report.status === "submitted" &&
         report.reporter_id !== profile.id &&
@@ -71,7 +103,7 @@ export default function CollectiveValidationPanel({
 
   const collectiveApprovals = useMemo(
     () =>
-      (approvals as CollectiveApproval[])
+      approvals
         .filter((item) => item.authority_type === "collective_body")
         .slice()
         .sort((a, b) => b.created_at.localeCompare(a.created_at)),
@@ -92,7 +124,7 @@ export default function CollectiveValidationPanel({
 
   useEffect(() => {
     setPendingReports(
-      (reports as CollectiveTaskReport[]).filter(
+      reports.filter(
         (report) =>
           report.status === "submitted" &&
           report.reporter_id !== profile.id &&
@@ -103,34 +135,34 @@ export default function CollectiveValidationPanel({
   }, [profile.id, reports]);
 
   useEffect(() => {
-    if (!officialSignature) {
-      setSignatureUrl("");
-      return;
-    }
     let cancelled = false;
-    void supabase.storage
-      .from("aiac-signatures")
-      .createSignedUrl(officialSignature.storage_path, 900)
-      .then(({ data }) => {
-        if (!cancelled) setSignatureUrl(data?.signedUrl || "");
-      });
+    async function loadSignature() {
+      if (!officialSignature) {
+        setSignatureUrl("");
+        return;
+      }
+      const { data } = await supabase.storage
+        .from("aiac-signatures")
+        .createSignedUrl(officialSignature.storage_path, 900);
+      if (!cancelled) setSignatureUrl(data?.signedUrl || "");
+    }
+    void loadSignature();
     return () => {
       cancelled = true;
     };
   }, [officialSignature, supabase]);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("mode") === "validation") {
-      requestAnimationFrame(() =>
-        document
-          .getElementById("collective-validation")
-          ?.scrollIntoView({ behavior: "smooth", block: "start" }),
-      );
-    }
+    if (new URLSearchParams(window.location.search).get("mode") !== "validation") return;
+    requestAnimationFrame(() => {
+      document.getElementById("collective-validation")?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    });
   }, []);
 
-  function authorityName(report: CollectiveTaskReport) {
+  function authorityName(report: Report) {
     return (
       bodies.find((body) => body.id === report.validation_authority_body_id)?.name ||
       "Conseil d’administration"
@@ -139,7 +171,7 @@ export default function CollectiveValidationPanel({
 
   async function recordDecision(
     event: FormEvent<HTMLFormElement>,
-    report: CollectiveTaskReport,
+    report: Report,
     decision: "approved" | "returned",
   ) {
     event.preventDefault();
@@ -175,11 +207,10 @@ export default function CollectiveValidationPanel({
       return;
     }
 
-    const authority = authorityName(report);
     setPendingReports((items) => items.filter((item) => item.id !== report.id));
     setLastDecision({
       reportNumber: report.report_number,
-      authorityName: authority,
+      authorityName: authorityName(report),
       recorderName: profile.full_name || profile.email || "Membre habilité du CA",
       reference,
       date,
@@ -299,7 +330,7 @@ export default function CollectiveValidationPanel({
           <h3>Décisions collégiales enregistrées</h3>
           {collectiveApprovals.map((approval) => {
             const report = reports.find((item) => item.id === approval.report_id);
-            const showCurrentSignature = approval.actor_id === profile.id && signatureUrl;
+            const currentSigner = approval.actor_id === profile.id;
             return (
               <div className="approvalRow" key={approval.id}>
                 <b>{report?.report_number || "Rapport AIAC"} · {approval.decision === "approved" ? "Approuvé" : "Retourné"}</b>
@@ -310,7 +341,7 @@ export default function CollectiveValidationPanel({
                 {approval.comment && <p><b>Observation :</b> {approval.comment}</p>}
                 <div>
                   <b>Signature :</b>
-                  {showCurrentSignature ? (
+                  {currentSigner && signatureUrl ? (
                     <div className="official-assets">
                       <figure className="official-asset composite_signature">
                         <img src={signatureUrl} alt={`Signature officielle de ${approval.actor_name}`} />
