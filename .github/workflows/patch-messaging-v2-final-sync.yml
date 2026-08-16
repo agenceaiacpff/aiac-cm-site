@@ -1,0 +1,48 @@
+name: Patch messaging V2 final sync
+
+on:
+  push:
+    paths:
+      - '.github/workflows/patch-messaging-v2-final-sync.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch MessageCenterV2
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('components/MessageCenterV2.tsx')
+          s=p.read_text()
+          old='setHasOlder(ordered.length===100);await Promise.all([loadReceipts(ids),supabase.rpc("mark_conversation_read",{target_conversation:id})]);onConversationRead();setLoadingMessages(false);'
+          new='setHasOlder(ordered.length===100);await loadReceipts(ids);if(document.visibilityState==="visible"){const {error:readError}=await supabase.rpc("mark_conversation_read",{target_conversation:id});if(!readError)onConversationRead();}setLoadingMessages(false);'
+          if old not in s:
+              raise SystemExit('loadConversation anchor not found')
+          s=s.replace(old,new,1)
+          anchor='\n useEffect(()=>{const q=messageQuery.trim();'
+          if anchor not in s:
+              raise SystemExit('search effect anchor not found')
+          addition='''
+ useEffect(()=>{if(!activeId)return;const markVisible=()=>{if(document.visibilityState!=="visible")return;void (async()=>{const {error}=await supabase.rpc("mark_conversation_read",{target_conversation:activeId});if(!error)onConversationRead();})();};document.addEventListener("visibilitychange",markVisible);window.addEventListener("focus",markVisible);return()=>{document.removeEventListener("visibilitychange",markVisible);window.removeEventListener("focus",markVisible);};},[activeId,onConversationRead,supabase]);
+
+ useEffect(()=>{const channel=supabase.channel(`messaging-access-sync:${profile.id}`)
+ .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:`user_id=eq.${profile.id}`},async(payload:RealtimePayload)=>{const n=payload.new as {category?:string;entity_type?:string;entity_id?:string;title?:string};if(!n.entity_id)return;if(n.entity_type==="conversation"&&((n.category==="message_access"&&n.title==="Accès à une conversation retiré")||(n.category==="message_admin"&&n.title==="Conversation supprimée par le super-administrateur"))){const removed=n.entity_id;setConversations(current=>current.filter(x=>x.id!==removed));setActiveId(current=>current===removed?null:current);onConversationRead();return;}if(n.entity_type==="conversation"&&n.category==="message_access"&&n.title==="Ajout à une conversation"){const {data}=await supabase.from("conversations").select("id,title,updated_at,created_by,request_id,sensitivity,status,organization_unit_id,assigned_to").eq("id",n.entity_id).maybeSingle();if(data)mergeConversation(data as ConversationRow);return;}if(n.entity_type==="conversation"&&n.category==="message_access"&&n.title==="Rôle de conversation modifié"&&activeId===n.entity_id)void loadConversation(n.entity_id);})
+ .on("postgres_changes",{event:"UPDATE",schema:"public",table:"conversations"},(payload:RealtimePayload)=>{const row=payload.new as ConversationRow;if(row?.id)mergeConversation(row);})
+ .subscribe();return()=>{void supabase.removeChannel(channel);};},[activeId,loadConversation,mergeConversation,onConversationRead,profile.id,supabase]);
+'''
+          s=s.replace(anchor,'\n'+addition+anchor,1)
+          p.write_text(s)
+          PY
+      - name: Remove one-shot workflow and commit
+        run: |
+          git rm .github/workflows/patch-messaging-v2-final-sync.yml
+          git config user.name "agenceaiacpff"
+          git config user.email "84762273+agenceaiacpff@users.noreply.github.com"
+          git add components/MessageCenterV2.tsx
+          git commit -m "Finalize messaging realtime access and read sync"
+          git push
