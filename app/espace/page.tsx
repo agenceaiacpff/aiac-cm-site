@@ -28,9 +28,9 @@ type SearchParams = Record<string, string | string[] | undefined>;
 export default async function Espace({
   searchParams,
 }: {
-  searchParams?: SearchParams | Promise<SearchParams>;
+  searchParams?: Promise<SearchParams>;
 }) {
-  const params = await Promise.resolve(searchParams || {});
+  const params = (await searchParams) || {};
   const requestedTab = Array.isArray(params.tab) ? params.tab[0] : params.tab;
   const activeTab = requestedTab && portalTabs.has(requestedTab) ? requestedTab : "accueil";
 
