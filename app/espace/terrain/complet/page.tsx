@@ -4,7 +4,16 @@ import ProgramCyclePortal from "@/components/ProgramCyclePortal";
 
 export const dynamic = "force-dynamic";
 
-export default async function FullProgramCyclePage() {
+type SearchParams = Record<string, string | string[] | undefined>;
+
+export default async function FullProgramCyclePage({
+  searchParams,
+}: {
+  searchParams?: Promise<SearchParams>;
+}) {
+  const params = (await searchParams) || {};
+  const reportParam = Array.isArray(params.report) ? params.report[0] : params.report;
+
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
@@ -18,9 +27,28 @@ export default async function FullProgramCyclePage() {
   if (profile.must_reset_password) redirect("/mettre-a-jour-mot-de-passe");
 
   const isAdmin = ["admin", "super_admin"].includes(profile.role);
+  const isManagementRole = ["staff", "manager", "admin", "super_admin"].includes(profile.role);
   if (isAdmin) {
     const { data: assurance } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
     if (assurance?.currentLevel !== "aal2") redirect("/mfa");
+  }
+
+  if (!isManagementRole && !reportParam) {
+    const forward = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (Array.isArray(value)) value.forEach((item) => forward.append(key, item));
+      else if (value) forward.set(key, value);
+    }
+    redirect(`/espace/terrain${forward.size ? `?${forward.toString()}` : ""}`);
+  }
+
+  if (!isManagementRole && reportParam) {
+    const { data: accessibleReport } = await supabase
+      .from("task_reports")
+      .select("id")
+      .eq("id", reportParam)
+      .maybeSingle();
+    if (!accessibleReport) redirect("/espace/terrain");
   }
 
   const [
