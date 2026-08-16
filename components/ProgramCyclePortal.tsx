@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import HierarchicalProgramCycle from "@/components/HierarchicalProgramCycle";
 import AgentTaskInbox from "@/components/AgentTaskInbox";
 import ProgramCycleContextBridge from "@/components/ProgramCycleContextBridge";
+import CollectiveValidationPanel from "@/components/CollectiveValidationPanel";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import { roleLabels } from "@/components/AccountsPanel";
 import type {
@@ -134,6 +135,12 @@ export default function ProgramCyclePortal(props: Props) {
           </span>
         </header>
         <AgentTaskInbox />
+        <CollectiveValidationPanel
+          profile={props.profile as OperationProfile}
+          reports={props.initialTaskReports}
+          bodies={props.bodies}
+          signatureAssets={props.institutionalSignatureAssets}
+        />
         <HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} />
       </main>
     </div>
