@@ -1480,12 +1480,27 @@ export default function FieldReportingPanel({
     const signs = approvals.filter((item) => item.report_id === report.id);
     const signerVisuals = await Promise.all(
       signs.map(async (approval) => {
-        const officialAssets = institutionalSignatureAssets.filter(
-          (asset) =>
-            asset.profile_id === approval.actor_id &&
-            asset.status === "active" &&
-            asset.is_default,
+        const actorProfile = staffProfiles.find(
+          (candidate) => candidate.id === approval.actor_id,
         );
+        const normalizeIdentity = (value: string | null | undefined) =>
+          (value || "")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .toLowerCase();
+        const identityMatches =
+          normalizeIdentity(actorProfile?.full_name) ===
+          normalizeIdentity(approval.actor_name);
+        const officialAssets = identityMatches
+          ? institutionalSignatureAssets.filter(
+              (asset) =>
+                asset.profile_id === approval.actor_id &&
+                asset.status === "active" &&
+                asset.is_default,
+            )
+          : [];
         const visualInputs = officialAssets.map((asset) => ({
           path: asset.storage_path,
           bucket: "aiac-signatures",
