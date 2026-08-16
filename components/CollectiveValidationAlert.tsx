@@ -12,19 +12,23 @@ export default function CollectiveValidationAlert({ profileId }: { profileId: st
 
   useEffect(() => {
     let cancelled = false;
-    supabase
-      .from("task_reports")
-      .select("id,report_number", { count: "exact" })
-      .eq("status", "submitted")
-      .eq("validation_authority_type", "collective_body")
-      .neq("reporter_id", profileId)
-      .order("submitted_at", { ascending: true })
-      .limit(10)
-      .then(({ data, count: total }) => {
-        if (cancelled) return;
-        setCount(total || data?.length || 0);
-        setFirstReport(data?.[0]?.report_number || "");
-      });
+
+    async function loadPendingCollectiveReports() {
+      const result = await supabase
+        .from("task_reports")
+        .select("id,report_number", { count: "exact" })
+        .eq("status", "submitted")
+        .eq("validation_authority_type", "collective_body")
+        .neq("reporter_id", profileId)
+        .order("submitted_at", { ascending: true })
+        .limit(10);
+
+      if (cancelled) return;
+      setCount(result.count || result.data?.length || 0);
+      setFirstReport(result.data?.[0]?.report_number || "");
+    }
+
+    void loadPendingCollectiveReports();
     return () => {
       cancelled = true;
     };
