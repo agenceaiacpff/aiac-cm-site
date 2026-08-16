@@ -7,6 +7,7 @@ import HierarchicalProgramCycle from "@/components/HierarchicalProgramCycle";
 import AgentTaskInbox from "@/components/AgentTaskInbox";
 import ProgramCycleContextBridge from "@/components/ProgramCycleContextBridge";
 import CollectiveValidationPanel from "@/components/CollectiveValidationPanel";
+import HierarchicalValidationPanel from "@/components/HierarchicalValidationPanel";
 import InstitutionalReportsCenter from "@/components/InstitutionalReportsCenter";
 import UniversalTaskReporter from "@/components/UniversalTaskReporter";
 import ProgramCycleManagementConsole from "@/components/ProgramCycleManagementConsole";
@@ -31,24 +32,15 @@ import type {
   TaskReportRow,
 } from "@/components/FieldReportingPanel";
 import type { InstitutionalSignatureAsset } from "@/lib/institutional-signatures";
+import styles from "./ProgramCyclePortal.module.css";
 
 const links = [
-  ["accueil", "Tableau de bord"],
-  ["reunions", "Réunions et agenda"],
-  ["demandes", "Mes demandes"],
-  ["messages", "Messagerie"],
-  ["notifications", "Notifications"],
-  ["annonces", "Annonces"],
-  ["profil", "Mon profil"],
-  ["terrain", "Cycle des programmes"],
-  ["reports", "Centre des rapports"],
-  ["operations", "Demandes et interventions"],
-  ["institution", "Gouvernance et membres"],
-  ["documents", "Documents sécurisés"],
-  ["contenus", "Publications du site"],
-  ["administration", "Comptes et accès"],
-  ["data-control", "Contrôle des données"],
-  ["audit", "Journal d’audit"],
+  ["accueil", "Tableau de bord"], ["reunions", "Réunions et agenda"], ["demandes", "Mes demandes"],
+  ["messages", "Messagerie"], ["notifications", "Notifications"], ["annonces", "Annonces"],
+  ["profil", "Mon profil"], ["terrain", "Cycle des programmes"], ["reports", "Centre des rapports"],
+  ["operations", "Demandes et interventions"], ["institution", "Gouvernance et membres"],
+  ["documents", "Documents sécurisés"], ["contenus", "Publications du site"],
+  ["administration", "Comptes et accès"], ["data-control", "Contrôle des données"], ["audit", "Journal d’audit"],
 ];
 
 type Props = {
@@ -105,42 +97,25 @@ export default function ProgramCyclePortal(props: Props) {
         </a>
         <div className="portalIdentity">
           <span aria-hidden="true">{(props.profile.full_name || props.profile.email || "A").charAt(0).toUpperCase()}</span>
-          <div>
-            <b>{props.profile.full_name || "Membre AIAC"}</b>
-            <small>{roleLabels[props.profile.role] || props.profile.role}</small>
-          </div>
+          <div><b>{props.profile.full_name || "Membre AIAC"}</b><small>{roleLabels[props.profile.role] || props.profile.role}</small></div>
         </div>
         <nav>
-          {links
-            .filter(([id]) => {
-              if (["operations", "institution", "documents", "contenus"].includes(id)) return isStaff;
-              if (id === "administration") return isAdmin;
-              if (["data-control", "audit"].includes(id)) return isSuperAdmin;
-              return true;
-            })
-            .map(([id, label]) => (
-              <button
-                type="button"
-                key={id}
-                className={id === "terrain" ? "active" : ""}
-                onClick={() => openTab(id)}
-              >
-                <span>{label}</span>
-              </button>
-            ))}
+          {links.filter(([id]) => {
+            if (["operations", "institution", "documents", "contenus"].includes(id)) return isStaff;
+            if (id === "administration") return isAdmin;
+            if (["data-control", "audit"].includes(id)) return isSuperAdmin;
+            return true;
+          }).map(([id, label]) => (
+            <button type="button" key={id} className={id === "terrain" ? "active" : ""} onClick={() => openTab(id)}><span>{label}</span></button>
+          ))}
         </nav>
         <a className="publicSiteLink" href="/nouveau-site/index.html">Voir le site public</a>
         <button className="logout" onClick={logout}>Se déconnecter</button>
       </aside>
       <main className="portalMain">
         <header>
-          <div>
-            <p className="eyebrow">{roleLabels[props.profile.role] || props.profile.role}</p>
-            <h1>Gestion complète du cycle des programmes</h1>
-          </div>
-          <span className={`status ${props.profile.status}`}>
-            {props.profile.status === "active" ? "Compte actif" : props.profile.status}
-          </span>
+          <div><p className="eyebrow">{roleLabels[props.profile.role] || props.profile.role}</p><h1>Gestion complète du cycle des programmes</h1></div>
+          <span className={`status ${props.profile.status}`}>{props.profile.status === "active" ? "Compte actif" : props.profile.status}</span>
         </header>
 
         <AgentTaskInbox />
@@ -154,6 +129,10 @@ export default function ProgramCyclePortal(props: Props) {
           staffProfiles={props.staffProfiles}
           bodies={props.bodies}
         />
+        <HierarchicalValidationPanel
+          profile={props.profile as OperationProfile}
+          signatureAssets={props.institutionalSignatureAssets}
+        />
         <CollectiveValidationPanel
           profile={props.profile as OperationProfile}
           reports={props.initialTaskReports}
@@ -162,7 +141,9 @@ export default function ProgramCyclePortal(props: Props) {
           signatureAssets={props.institutionalSignatureAssets}
         />
         <InstitutionalReportsCenter />
-        <HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} />
+        <div className={styles.legacyCycle}>
+          <HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} />
+        </div>
       </main>
     </div>
   );
