@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
@@ -117,7 +118,7 @@ export default function AgentTaskInbox() {
       <div className="panelTitle">
         <div>
           <h3>Mes tâches affectées</h3>
-          <p>Votre file de travail personnelle, sans parcourir l’ensemble du référentiel AIAC.</p>
+          <p>Votre file de travail personnelle. Une affectation facilite le suivi, mais elle n’est pas obligatoire pour rapporter une tâche via le formulaire ci-dessus.</p>
         </div>
       </div>
       {notice && <p>{notice}</p>}
@@ -142,48 +143,48 @@ export default function AgentTaskInbox() {
         ))}
       </div>
       {visible.length === 0 ? (
-        <p>Aucune tâche dans cette catégorie.</p>
+        <p>Aucune tâche ne vous est actuellement affectée dans cette catégorie. Vous pouvez néanmoins rapporter n’importe quelle tâche officielle planifiée ou active avec « Rapporter une tâche » ci-dessus.</p>
       ) : (
-        visible.slice(0, 150).map((row) => (
-          <div className="workflowCard" key={row.task_id}>
-            <div className="workflowBody">
-              <div className="panelTitle">
-                <div>
-                  <b>Tâche {row.task_sequence_no} · {row.task_code} · {row.task_title}</b>
-                  <p>
-                    {row.body_code} → {row.program_code} → {row.project_code} → {row.activity_code}
-                  </p>
-                  <small>
-                    {row.body_name} · {row.program_name} · {row.project_name} · {row.activity_title}
-                  </small>
+        visible.slice(0, 150).map((row) => {
+          const href = `/espace/terrain?body=${encodeURIComponent(row.body_id)}&program=${encodeURIComponent(row.program_id)}&project=${encodeURIComponent(row.project_id)}&activity=${encodeURIComponent(row.activity_id)}&task=${encodeURIComponent(row.task_id)}`;
+          return (
+            <div className="workflowCard" key={row.task_id}>
+              <div className="workflowBody">
+                <div className="panelTitle">
+                  <div>
+                    <b>Tâche {row.task_sequence_no} · {row.task_code} · {row.task_title}</b>
+                    <p>
+                      {row.body_code} → {row.program_code} → {row.project_code} → {row.activity_code}
+                    </p>
+                    <small>
+                      {row.body_name} · {row.program_name} · {row.project_name} · {row.activity_title}
+                    </small>
+                  </div>
+                  <span className={`operationBadge ${row.latest_report_status || row.task_status}`}>
+                    {row.latest_report_status
+                      ? reportLabels[row.latest_report_status] || row.latest_report_status
+                      : taskLabels[row.task_status] || row.task_status}
+                  </span>
                 </div>
-                <span className={`operationBadge ${row.latest_report_status || row.task_status}`}>
-                  {row.latest_report_status
-                    ? reportLabels[row.latest_report_status] || row.latest_report_status
-                    : taskLabels[row.task_status] || row.task_status}
-                </span>
-              </div>
-              <p>
-                Échéance : <b>{row.due_date || "Non définie"}</b>
-                {row.due_date && row.due_date < now && row.latest_report_status !== "approved" ? " · En retard" : ""}
-              </p>
-              {row.latest_report_number && (
                 <p>
-                  Dernier rapport : <b>{row.latest_report_number}</b>
-                  {row.latest_report_updated_at
-                    ? ` · mis à jour le ${new Date(row.latest_report_updated_at).toLocaleDateString("fr-FR")}`
-                    : ""}
+                  Échéance : <b>{row.due_date || "Non définie"}</b>
+                  {row.due_date && row.due_date < now && row.latest_report_status !== "approved" ? " · En retard" : ""}
                 </p>
-              )}
-              <a
-                className="secondaryButton"
-                href={`/espace/terrain?body=${encodeURIComponent(row.body_id)}&program=${encodeURIComponent(row.program_id)}&project=${encodeURIComponent(row.project_id)}&activity=${encodeURIComponent(row.activity_id)}&task=${encodeURIComponent(row.task_id)}`}
-              >
-                Ouvrir cette tâche dans son contexte
-              </a>
+                {row.latest_report_number && (
+                  <p>
+                    Dernier rapport : <b>{row.latest_report_number}</b>
+                    {row.latest_report_updated_at
+                      ? ` · mis à jour le ${new Date(row.latest_report_updated_at).toLocaleDateString("fr-FR")}`
+                      : ""}
+                  </p>
+                )}
+                <Link className="secondaryButton" href={href}>
+                  Rapporter / ouvrir cette tâche
+                </Link>
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       )}
       {visible.length > 150 && <p>Affichage limité aux 150 premières tâches de ce filtre.</p>}
     </div>
