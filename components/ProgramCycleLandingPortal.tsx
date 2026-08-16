@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import UniversalTaskReporter from "@/components/UniversalTaskReporter";
 import AgentTaskInbox from "@/components/AgentTaskInbox";
+import CollectiveValidationAlert from "@/components/CollectiveValidationAlert";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import { roleLabels } from "@/components/AccountsPanel";
 
@@ -90,6 +91,8 @@ export default function ProgramCycleLandingPortal({ profile }: { profile: Accoun
             {profile.status === "active" ? "Compte actif" : profile.status}
           </span>
         </header>
+
+        <CollectiveValidationAlert profileId={profile.id} />
 
         <div className="portalPanel fieldHero">
           <div>
