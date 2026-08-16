@@ -1379,6 +1379,38 @@ textarea {
 .eventItem small {
   color: #64748b;
 }
+.assetRevocationActions {
+  align-items: center;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 9px 10px;
+}
+.assetRevocationActions span {
+  color: #9a3412;
+  flex: 1 1 260px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.assetRevocationActions button {
+  border: 0;
+  border-radius: 8px;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  padding: 8px 11px;
+}
+.assetRevocationActions button:last-child {
+  background: #475569;
+}
+.assetRevocationActions button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
 .statusReasonForm {
   display: grid;
   gap: 8px;
