@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import HierarchicalProgramCycle from "@/components/HierarchicalProgramCycle";
 import type { AccountProfile } from "@/components/AccountsPanel";
+import { roleLabels } from "@/components/AccountsPanel";
 import type {
   OperationBody,
   OperationProfile,
@@ -24,7 +25,6 @@ import type {
   TaskReportRow,
 } from "@/components/FieldReportingPanel";
 import type { InstitutionalSignatureAsset } from "@/lib/institutional-signatures";
-import { roleLabels } from "@/components/AccountsPanel";
 
 const links = [
   ["accueil", "Tableau de bord"],
@@ -80,6 +80,10 @@ export default function ProgramCyclePortal(props: Props) {
     router.refresh();
   }
 
+  function openTab(id: string) {
+    window.location.assign(id === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(id)}`);
+  }
+
   return (
     <div className="portalShell">
       <aside className="portalSidebar">
@@ -103,13 +107,14 @@ export default function ProgramCyclePortal(props: Props) {
               return true;
             })
             .map(([id, label]) => (
-              <a
+              <button
+                type="button"
                 key={id}
                 className={id === "terrain" ? "active" : ""}
-                href={id === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(id)}`}
+                onClick={() => openTab(id)}
               >
                 <span>{label}</span>
-              </a>
+              </button>
             ))}
         </nav>
         <a className="publicSiteLink" href="/nouveau-site/index.html">Voir le site public</a>
