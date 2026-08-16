@@ -140,7 +140,10 @@ export default function RichHtmlEditor({
   placeholder = "Collez ici le contenu venant de Word ou rédigez directement votre rapport…",
 }: {
   onChange: (html: string) => void;
-  onImported?: (metadata: ImportedMetadata) => void;
+  onImported?: (
+    metadata: ImportedMetadata,
+    html: string,
+  ) => void | Promise<void>;
   resetToken?: number | string;
   initialHtml?: string;
   allowInlineImages?: boolean;
@@ -289,20 +292,23 @@ export default function RichHtmlEditor({
       if (contentFormat === "html_document") setDocumentHtml(safe);
       else if (editorRef.current) editorRef.current.innerHTML = safe;
       onChange(safe);
-      onImported({
-        fileName: selectedFile.name,
-        mimeType:
-          selectedFile.type ||
-          (/\.docx$/i.test(selectedFile.name)
-            ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            : "text/html"),
-        title,
-        summary: text.slice(0, 500),
-        warnings,
-        contentFormat,
-      });
+      await onImported(
+        {
+          fileName: selectedFile.name,
+          mimeType:
+            selectedFile.type ||
+            (/\.docx$/i.test(selectedFile.name)
+              ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              : "text/html"),
+          title,
+          summary: text.slice(0, 500),
+          warnings,
+          contentFormat,
+        },
+        safe,
+      );
       setNotice(
-        `Fichier « ${selectedFile.name} » chargé${warnings.length ? ` avec ${warnings.length} avertissement(s)` : ""}. Vérifiez l’aperçu puis enregistrez.`,
+        `Fichier « ${selectedFile.name} » chargé et enregistré${warnings.length ? ` avec ${warnings.length} avertissement(s)` : ""}. Son contenu sera repris dans les exports PDF, Word et HTML5.`,
       );
     } catch (error) {
       setNotice(
