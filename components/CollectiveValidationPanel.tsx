@@ -4,298 +4,47 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
-type Profile = { id: string; full_name: string | null; email: string | null };
-type Report = {
-  id: string;
-  report_number: string;
-  reporter_id: string;
-  status: string;
-  title: string | null;
-  summary: string;
-  revision: number;
-  current_hash: string | null;
-  validation_authority_type?: string;
-  validation_authority_body_id?: string | null;
-};
-type Approval = {
-  id: string;
-  report_id: string;
-  actor_id: string;
-  actor_name: string;
-  actor_job_title: string | null;
-  decision: string;
-  comment: string | null;
-  content_hash: string;
-  signed_at: string;
-  created_at: string;
-  authority_type?: string;
-  authority_name?: string | null;
-  decision_reference?: string | null;
-  decision_date?: string | null;
-  mandate_reference?: string | null;
-  validation_reference?: string | null;
-};
-type Body = { id: string; name: string };
-type SignatureAsset = {
-  profile_id: string;
-  asset_type: string;
-  storage_path: string;
-  is_default: boolean;
-  status: string;
-};
-type Mandate = {
-  id: string;
-  mandate_code: string;
-  pv_reference: string;
-  resolution_reference: string;
-  title: string;
-  authority_name: string;
-  adopted_on: string;
-  effective_from: string;
-  effective_until: string | null;
-  scope_summary: string;
-  signed_pdf_file_name: string | null;
-  signed_pdf_sha256: string | null;
-  member_status: string;
-  accepted_at: string | null;
-};
-type DecisionResult = {
-  report_number: string;
-  decision: "approved" | "returned";
-  validation_reference: string;
-  mandate_reference: string;
-  resolution_reference: string;
-  mandate_adopted_on: string;
-  decision_date: string;
-  authority_name: string;
-};
-type Props = {
-  profile: Profile;
-  reports: Report[];
-  approvals: Approval[];
-  bodies: Body[];
-  signatureAssets: SignatureAsset[];
-};
+type Profile={id:string;full_name:string|null;email:string|null};
+type Report={id:string;report_number:string;reporter_id:string;status:string;title:string|null;summary:string;revision:number;current_hash:string|null;validation_authority_type?:string;validation_authority_body_id?:string|null};
+type Approval={id:string;report_id:string;actor_id:string;actor_name:string;actor_job_title:string|null;decision:string;comment:string|null;content_hash:string;signed_at:string;created_at:string;authority_type?:string;authority_name?:string|null;decision_reference?:string|null;decision_date?:string|null;mandate_reference?:string|null;validation_reference?:string|null;nominal_seal_asset_path?:string|null;round_seal_asset_path?:string|null;signature_block_side?:"left"|"right"};
+type Body={id:string;name:string};
+type SignatureAsset={profile_id:string;asset_type:string;storage_path:string;is_default:boolean;status:string};
+type Mandate={id:string;mandate_code:string;pv_reference:string;resolution_reference:string;title:string;authority_name:string;adopted_on:string;effective_from:string;effective_until:string|null;scope_summary:string;signed_pdf_file_name:string|null;signed_pdf_sha256:string|null;member_status:string;accepted_at:string|null};
+type DecisionResult={report_number:string;decision:"approved"|"returned";validation_reference:string;mandate_reference:string;resolution_reference:string;mandate_adopted_on:string;decision_date:string;authority_name:string};
+type Props={profile:Profile;reports:Report[];approvals:Approval[];bodies:Body[];signatureAssets:SignatureAsset[]};
+type Choice={nominal:boolean;round:boolean;side:"left"|"right"};
 
-function formatDate(value: string | null | undefined) {
-  if (!value) return "—";
-  const dateOnly = value.slice(0, 10);
-  return new Date(`${dateOnly}T12:00:00`).toLocaleDateString("fr-FR", {
-    day: "2-digit",
-    month: "long",
-    year: "numeric",
-  });
-}
+function formatDate(value:string|null|undefined){if(!value)return "—";const d=value.slice(0,10);return new Date(`${d}T12:00:00`).toLocaleDateString("fr-FR",{day:"2-digit",month:"long",year:"numeric"});}
 
-export default function CollectiveValidationPanel({ profile, reports, approvals, bodies, signatureAssets }: Props) {
-  const supabase = useMemo(() => createClient(), []);
-  const router = useRouter();
-  const [pendingReports, setPendingReports] = useState<Report[]>(() =>
-    reports.filter((report) => report.status === "submitted" && report.reporter_id !== profile.id && report.validation_authority_type === "collective_body" && Boolean(report.validation_authority_body_id)),
-  );
-  const [mandatesByReport, setMandatesByReport] = useState<Record<string, Mandate[]>>({});
-  const [selectedMandateByReport, setSelectedMandateByReport] = useState<Record<string, string>>({});
-  const [busyId, setBusyId] = useState("");
-  const [notice, setNotice] = useState("");
-  const [signatureUrl, setSignatureUrl] = useState("");
-  const [lastDecision, setLastDecision] = useState<DecisionResult | null>(null);
-
-  const collectiveApprovals = useMemo(
-    () => approvals.filter((item) => item.authority_type === "collective_body").slice().sort((a, b) => b.created_at.localeCompare(a.created_at)),
-    [approvals],
-  );
-  const officialSignature = useMemo(
-    () => signatureAssets.find((asset) => asset.profile_id === profile.id && asset.status === "active" && asset.is_default && ["composite_signature", "signature"].includes(asset.asset_type)) || null,
-    [profile.id, signatureAssets],
-  );
-
-  useEffect(() => {
-    setPendingReports(reports.filter((report) => report.status === "submitted" && report.reporter_id !== profile.id && report.validation_authority_type === "collective_body" && Boolean(report.validation_authority_body_id)));
-  }, [profile.id, reports]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadMandates() {
-      const entries: Array<[string, Mandate[]]> = [];
-      for (const report of pendingReports) {
-        const { data, error } = await supabase.rpc("my_report_validation_mandates", { target_report_id: report.id });
-        if (!error) entries.push([report.id, (data || []) as Mandate[]]);
-      }
-      if (!cancelled) setMandatesByReport(Object.fromEntries(entries));
-    }
-    void loadMandates();
-    return () => { cancelled = true; };
-  }, [pendingReports, supabase]);
-
-  useEffect(() => {
-    let cancelled = false;
-    async function loadSignature() {
-      if (!officialSignature) { setSignatureUrl(""); return; }
-      const { data } = await supabase.storage.from("aiac-signatures").createSignedUrl(officialSignature.storage_path, 900);
-      if (!cancelled) setSignatureUrl(data?.signedUrl || "");
-    }
-    void loadSignature();
-    return () => { cancelled = true; };
-  }, [officialSignature, supabase]);
-
-  useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("mode") !== "validation") return;
-    requestAnimationFrame(() => document.getElementById("collective-validation")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-  }, []);
-
-  function authorityName(report: Report) {
-    return bodies.find((body) => body.id === report.validation_authority_body_id)?.name || "Conseil d’administration";
-  }
-
-  async function recordDecision(event: FormEvent<HTMLFormElement>, report: Report, decision: "approved" | "returned") {
-    event.preventDefault();
-    const mandateId = selectedMandateByReport[report.id];
-    const data = new FormData(event.currentTarget);
-    const comment = String(data.get("comment") || "").trim();
-    const requireEvidence = data.get("require_evidence") === "on";
-    if (!mandateId) { setNotice("Sélectionnez d’abord le PV d’habilitation applicable."); return; }
-    if (decision === "returned" && comment.length < 5) { setNotice("Précisez les corrections demandées."); return; }
-
-    setBusyId(report.id);
-    setNotice("");
-    const { data: result, error } = await supabase.rpc("review_task_report_collective_from_mandate", {
-      target_report_id: report.id,
-      decision,
-      review_comment: comment,
-      mandate_id: mandateId,
-      require_evidence: requireEvidence,
-    });
-    if (error) { setNotice(error.message); setBusyId(""); return; }
-
-    setPendingReports((items) => items.filter((item) => item.id !== report.id));
-    setLastDecision(result as DecisionResult);
-    setNotice(decision === "approved"
-      ? "Décision enregistrée au nom du Conseil d’administration. La référence de validation a été générée automatiquement."
-      : "Retour pour correction enregistré au nom du Conseil d’administration.");
-    setBusyId("");
-    router.refresh();
-  }
-
-  if (!pendingReports.length && !lastDecision && !collectiveApprovals.length) return null;
-
-  return (
-    <section id="collective-validation" className="portalPanel">
-      <div className="panelTitle">
-        <div>
-          <p className="eyebrow">Gouvernance · Conseil d’administration</p>
-          <h2>Validation collégiale des rapports</h2>
-          <p>Le PV permanent d’habilitation est enregistré une seule fois. Au moment de la validation, le membre habilité le sélectionne et la plateforme reprend automatiquement ses références.</p>
-        </div>
-        {pendingReports.length > 0 && <span className="operationBadge submitted">{pendingReports.length} à valider</span>}
-      </div>
-
-      {notice && <div className="notice" role="status">{notice}</div>}
-
-      {lastDecision && (
-        <div className="reviewCard">
-          <h3>{lastDecision.report_number}</h3>
-          <p><b>Autorité de validation :</b> {lastDecision.authority_name}</p>
-          <p><b>Décision enregistrée par :</b> {profile.full_name || profile.email}</p>
-          <p><b>PV d’habilitation :</b> {lastDecision.mandate_reference}</p>
-          <p><b>Résolution :</b> {lastDecision.resolution_reference}</p>
-          <p><b>Date du PV :</b> {formatDate(lastDecision.mandate_adopted_on)}</p>
-          <p><b>Référence de validation :</b> {lastDecision.validation_reference}</p>
-          <p><b>Date de validation :</b> {formatDate(lastDecision.decision_date)}</p>
-          <p><b>Décision :</b> {lastDecision.decision === "approved" ? "Approuvé" : "Retourné pour correction"}</p>
-          {signatureUrl && <div className="official-assets"><figure className="official-asset composite_signature"><img src={signatureUrl} alt="Signature officielle du membre habilité" /></figure></div>}
-        </div>
-      )}
-
-      {pendingReports.map((report) => {
-        const mandates = mandatesByReport[report.id] || [];
-        const selectedId = selectedMandateByReport[report.id] || "";
-        const selected = mandates.find((item) => item.id === selectedId) || null;
-        return (
-          <article className="reviewCard" key={report.id}>
-            <div className="panelTitle">
-              <div><h3>{report.report_number}</h3><p>{report.title || report.summary}</p></div>
-              <span className="operationBadge submitted">Soumis · révision {report.revision}</span>
-            </div>
-            <p>{report.summary}</p>
-            <p className="hashPreview">SHA-256 : {report.current_hash}</p>
-            <div className="securityBox">
-              <p><b>Autorité de validation :</b> {authorityName(report)}</p>
-              <p><b>Décision enregistrée par :</b> {profile.full_name || profile.email}</p>
-              {signatureUrl && <div className="official-assets"><figure className="official-asset composite_signature"><img src={signatureUrl} alt="Signature officielle" /></figure></div>}
-            </div>
-
-            <div className="reportSubsection">
-              <h4>1 · Sélectionner l’habilitation</h4>
-              {mandates.length === 0 ? (
-                <p>Aucun PV d’habilitation actif n’est disponible pour votre compte et ce rapport.</p>
-              ) : (
-                <div className="reportActions">
-                  {mandates.map((mandate) => (
-                    <button
-                      type="button"
-                      key={mandate.id}
-                      className={selectedId === mandate.id ? "approveButton" : ""}
-                      onClick={() => setSelectedMandateByReport((items) => ({ ...items, [report.id]: mandate.id }))}
-                    >
-                      {selectedId === mandate.id ? "PV sélectionné" : "Utiliser ce PV"} · {mandate.pv_reference}
-                    </button>
-                  ))}
-                </div>
-              )}
-              {selected && (
-                <div className="securityBox">
-                  <p><b>PV d’habilitation :</b> {selected.pv_reference}</p>
-                  <p><b>Résolution :</b> {selected.resolution_reference}</p>
-                  <p><b>Date d’adoption :</b> {formatDate(selected.adopted_on)}</p>
-                  <p><b>État :</b> habilitation active et acceptée</p>
-                  <p><b>Référence de validation :</b> générée automatiquement au format VAL-CA-AAAA-NNNN</p>
-                  <p><b>Date de validation :</b> remplie automatiquement au jour de la décision</p>
-                  {selected.signed_pdf_sha256 && <code>PV signé · SHA-256 {selected.signed_pdf_sha256}</code>}
-                </div>
-              )}
-            </div>
-
-            <form className="reviewForm" onSubmit={(event) => recordDecision(event, report, "approved")}>
-              <h4>2 · Enregistrer la décision</h4>
-              <textarea name="comment" placeholder="Observation du Conseil — facultative en cas d’approbation" />
-              <button className="approveButton" disabled={busyId === report.id || !officialSignature || !selected}>
-                {busyId === report.id ? "Enregistrement…" : "Valider au nom du Conseil d’administration"}
-              </button>
-              {!officialSignature && <small>Une signature officielle active est nécessaire.</small>}
-            </form>
-
-            <details>
-              <summary>Retourner le rapport pour correction</summary>
-              <form className="reviewForm returnForm" onSubmit={(event) => recordDecision(event, report, "returned")}>
-                <textarea name="comment" minLength={5} placeholder="Corrections précises demandées par le Conseil" required />
-                <label className="evidenceReviewChoice"><input name="require_evidence" type="checkbox" /> Exiger au moins une preuve à la prochaine soumission</label>
-                <button disabled={busyId === report.id || !officialSignature || !selected}>Enregistrer le retour du Conseil</button>
-              </form>
-            </details>
-          </article>
-        );
-      })}
-
-      {collectiveApprovals.length > 0 && (
-        <div className="reportSubsection">
-          <h3>Décisions collégiales enregistrées</h3>
-          {collectiveApprovals.map((approval) => {
-            const report = reports.find((item) => item.id === approval.report_id);
-            return (
-              <div className="approvalRow" key={approval.id}>
-                <b>{report?.report_number || "Rapport AIAC"} · {approval.decision === "approved" ? "Approuvé" : "Retourné"}</b>
-                <p><b>Autorité de validation :</b> {approval.authority_name || "Conseil d’administration"}</p>
-                <p><b>Décision enregistrée par :</b> {approval.actor_name}</p>
-                <p><b>PV d’habilitation :</b> {approval.mandate_reference || "Ancienne décision sans mandat lié"}</p>
-                <p><b>Référence de validation :</b> {approval.validation_reference || approval.decision_reference || "—"}</p>
-                <p><b>Date :</b> {formatDate(approval.decision_date || approval.signed_at)}</p>
-                {approval.comment && <p><b>Observation :</b> {approval.comment}</p>}
-                <code>{approval.content_hash}</code>
-              </div>
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
+export default function CollectiveValidationPanel({profile,reports,approvals,bodies,signatureAssets}:Props){
+ const supabase=useMemo(()=>createClient(),[]);const router=useRouter();
+ const [pendingReports,setPendingReports]=useState<Report[]>(()=>reports.filter(r=>r.status==="submitted"&&r.reporter_id!==profile.id&&r.validation_authority_type==="collective_body"&&Boolean(r.validation_authority_body_id)));
+ const [mandatesByReport,setMandatesByReport]=useState<Record<string,Mandate[]>>({});const [selectedMandateByReport,setSelectedMandateByReport]=useState<Record<string,string>>({});const [busyId,setBusyId]=useState("");const [notice,setNotice]=useState("");const [lastDecision,setLastDecision]=useState<DecisionResult|null>(null);const [assetUrls,setAssetUrls]=useState<Record<string,string>>({});const [choices,setChoices]=useState<Record<string,Choice>>({});
+ const activeAssets=useMemo(()=>signatureAssets.filter(a=>a.profile_id===profile.id&&a.status==="active"&&a.is_default),[profile.id,signatureAssets]);
+ const signatureAsset=useMemo(()=>activeAssets.find(a=>a.asset_type==="signature")||activeAssets.find(a=>a.asset_type==="composite_signature")||null,[activeAssets]);
+ const nominalAsset=useMemo(()=>activeAssets.find(a=>a.asset_type==="nominal_seal")||null,[activeAssets]);
+ const roundAsset=useMemo(()=>activeAssets.find(a=>a.asset_type==="round_seal")||null,[activeAssets]);
+ const collectiveApprovals=useMemo(()=>approvals.filter(a=>a.authority_type==="collective_body").slice().sort((a,b)=>b.created_at.localeCompare(a.created_at)),[approvals]);
+ useEffect(()=>setPendingReports(reports.filter(r=>r.status==="submitted"&&r.reporter_id!==profile.id&&r.validation_authority_type==="collective_body"&&Boolean(r.validation_authority_body_id))),[profile.id,reports]);
+ useEffect(()=>{setChoices(current=>{const next={...current};for(const r of pendingReports)if(!next[r.id])next[r.id]={nominal:Boolean(nominalAsset),round:Boolean(roundAsset),side:"right"};return next;});},[pendingReports,nominalAsset,roundAsset]);
+ useEffect(()=>{let cancelled=false;(async()=>{const entries:Array<[string,Mandate[]]>=[];for(const r of pendingReports){const{data,error}=await supabase.rpc("my_report_validation_mandates",{target_report_id:r.id});if(!error)entries.push([r.id,(data||[]) as Mandate[]]);}if(!cancelled)setMandatesByReport(Object.fromEntries(entries));})();return()=>{cancelled=true};},[pendingReports,supabase]);
+ useEffect(()=>{let cancelled=false;(async()=>{const assets=[signatureAsset,nominalAsset,roundAsset].filter(Boolean) as SignatureAsset[];const pairs=await Promise.all(assets.map(async a=>{const{data}=await supabase.storage.from("aiac-signatures").createSignedUrl(a.storage_path,900);return[a.storage_path,data?.signedUrl||""] as const;}));if(!cancelled)setAssetUrls(Object.fromEntries(pairs));})();return()=>{cancelled=true};},[signatureAsset,nominalAsset,roundAsset,supabase]);
+ useEffect(()=>{if(new URLSearchParams(window.location.search).get("mode")!=="validation")return;requestAnimationFrame(()=>document.getElementById("collective-validation")?.scrollIntoView({behavior:"smooth",block:"start"}));},[]);
+ function authorityName(r:Report){return bodies.find(b=>b.id===r.validation_authority_body_id)?.name||"Conseil d’administration";}
+ function setChoice(id:string,patch:Partial<Choice>){setChoices(c=>({...c,[id]:{...(c[id]||{nominal:Boolean(nominalAsset),round:Boolean(roundAsset),side:"right"}),...patch}}));}
+ function sealPreview(reportId:string){const c=choices[reportId]||{nominal:Boolean(nominalAsset),round:Boolean(roundAsset),side:"right"};const sig=signatureAsset?assetUrls[signatureAsset.storage_path]:"";const nom=nominalAsset?assetUrls[nominalAsset.storage_path]:"";const round=roundAsset?assetUrls[roundAsset.storage_path]:"";const sealSide=c.side==="right"?"left":"right";return <div style={{display:"flex",justifyContent:c.side==="right"?"flex-end":"flex-start",marginTop:10}}><div style={{position:"relative",width:360,minHeight:190,textAlign:"center"}}>{sig&&<img src={sig} alt="Signature officielle" style={{position:"absolute",top:4,left:55,width:235,maxHeight:72,objectFit:"contain"}}/>}{c.nominal&&nom&&<img src={nom} alt="Cachet nominatif" style={{position:"absolute",bottom:5,left:40,width:265,maxHeight:82,objectFit:"contain"}}/>}{c.round&&round&&<img src={round} alt="Cachet rond" style={{position:"absolute",top:45,[sealSide]:0,width:112,height:112,objectFit:"contain"}}/>}</div></div>;}
+ async function recordDecision(event:FormEvent<HTMLFormElement>,report:Report,decision:"approved"|"returned"){
+  event.preventDefault();const mandateId=selectedMandateByReport[report.id];const data=new FormData(event.currentTarget);const comment=String(data.get("comment")||"").trim();const requireEvidence=data.get("require_evidence")==="on";const c=choices[report.id]||{nominal:Boolean(nominalAsset),round:Boolean(roundAsset),side:"right"};if(!mandateId){setNotice("Sélectionnez d’abord le PV d’habilitation applicable.");return;}if(decision==="returned"&&comment.length<5){setNotice("Précisez les corrections demandées.");return;}
+  setBusyId(report.id);setNotice("");const{data:result,error}=await supabase.rpc("review_task_report_collective_from_mandate_with_signature_options",{target_report_id:report.id,decision,review_comment:comment,mandate_id:mandateId,require_evidence:requireEvidence,include_nominal_seal:c.nominal,include_round_seal:c.round,signature_block_side:c.side});if(error){setNotice(error.message);setBusyId("");return;}setPendingReports(items=>items.filter(i=>i.id!==report.id));setLastDecision(result as DecisionResult);setNotice(decision==="approved"?"Décision enregistrée au nom du Conseil d’administration avec les éléments de signature sélectionnés.":"Retour pour correction enregistré au nom du Conseil d’administration.");setBusyId("");router.refresh();
+ }
+ if(!pendingReports.length&&!lastDecision&&!collectiveApprovals.length)return null;
+ return <section id="collective-validation" className="portalPanel"><div className="panelTitle"><div><p className="eyebrow">Gouvernance · Conseil d’administration</p><h2>Validation collégiale des rapports</h2><p>Le PV permanent est sélectionné une fois par décision. La signature est obligatoire ; les cachets disponibles peuvent être cochés ou décochés pour chaque signature.</p></div>{pendingReports.length>0&&<span className="operationBadge submitted">{pendingReports.length} à valider</span>}</div>{notice&&<div className="notice" role="status">{notice}</div>}
+ {lastDecision&&<div className="reviewCard"><h3>{lastDecision.report_number}</h3><p><b>Autorité :</b> {lastDecision.authority_name}</p><p><b>Décision enregistrée par :</b> {profile.full_name||profile.email}</p><p><b>PV :</b> {lastDecision.mandate_reference}</p><p><b>Résolution :</b> {lastDecision.resolution_reference}</p><p><b>Référence de validation :</b> {lastDecision.validation_reference}</p><p><b>Date :</b> {formatDate(lastDecision.decision_date)}</p></div>}
+ {pendingReports.map(report=>{const mandates=mandatesByReport[report.id]||[];const selectedId=selectedMandateByReport[report.id]||"";const selected=mandates.find(m=>m.id===selectedId)||null;const c=choices[report.id]||{nominal:Boolean(nominalAsset),round:Boolean(roundAsset),side:"right"};return <article className="reviewCard" key={report.id}><div className="panelTitle"><div><h3>{report.report_number}</h3><p>{report.title||report.summary}</p></div><span className="operationBadge submitted">Soumis · révision {report.revision}</span></div><p>{report.summary}</p><p className="hashPreview">SHA-256 : {report.current_hash}</p><div className="securityBox"><p><b>Autorité de validation :</b> {authorityName(report)}</p><p><b>Décision enregistrée par :</b> {profile.full_name||profile.email}</p></div>
+ <div className="reportSubsection"><h4>1 · Habilitation</h4>{mandates.length===0?<p>Aucun PV d’habilitation actif n’est disponible.</p>:<div className="reportActions">{mandates.map(m=><button type="button" key={m.id} className={selectedId===m.id?"approveButton":""} onClick={()=>setSelectedMandateByReport(v=>({...v,[report.id]:m.id}))}>{selectedId===m.id?"PV sélectionné":"Utiliser ce PV"} · {m.pv_reference}</button>)}</div>}{selected&&<div className="securityBox"><p><b>PV :</b> {selected.pv_reference}</p><p><b>Résolution :</b> {selected.resolution_reference}</p><p><b>Date :</b> {formatDate(selected.adopted_on)}</p><p><b>Référence de validation :</b> générée automatiquement</p></div>}</div>
+ <div className="reportSubsection"><h4>2 · Éléments de signature</h4><div className="securityBox"><label><input type="checkbox" checked readOnly/> Signature officielle</label>{nominalAsset?<label><input type="checkbox" checked={c.nominal} onChange={e=>setChoice(report.id,{nominal:e.target.checked})}/> Cachet nominatif</label>:<small>Cachet nominatif : aucun actif disponible pour ce compte.</small>}{roundAsset?<label><input type="checkbox" checked={c.round} onChange={e=>setChoice(report.id,{round:e.target.checked})}/> Cachet rond</label>:<small>Cachet rond : aucun actif disponible pour ce compte.</small>}<label>Position du bloc<select value={c.side} onChange={e=>setChoice(report.id,{side:e.target.value as "left"|"right"})}><option value="right">À droite</option><option value="left">À gauche</option></select></label><small>Ordre : signature en haut, nominatif en bas ; cachet rond du côté intérieur du bloc (à gauche si le bloc est à droite, à droite si le bloc est à gauche).</small>{sealPreview(report.id)}</div></div>
+ <form className="reviewForm" onSubmit={e=>recordDecision(e,report,"approved")}><h4>3 · Enregistrer la décision</h4><textarea name="comment" placeholder="Observation du Conseil — facultative en cas d’approbation"/><button className="approveButton" disabled={busyId===report.id||!signatureAsset||!selected}>{busyId===report.id?"Enregistrement…":"Valider au nom du Conseil d’administration"}</button>{!signatureAsset&&<small>Une signature officielle active est nécessaire.</small>}</form>
+ <details><summary>Retourner le rapport pour correction</summary><form className="reviewForm returnForm" onSubmit={e=>recordDecision(e,report,"returned")}><textarea name="comment" minLength={5} required placeholder="Corrections précises demandées par le Conseil"/><label><input name="require_evidence" type="checkbox"/> Exiger au moins une preuve à la prochaine soumission</label><button disabled={busyId===report.id||!signatureAsset||!selected}>Enregistrer le retour du Conseil</button></form></details></article>;})}
+ {collectiveApprovals.length>0&&<div className="reportSubsection"><h3>Décisions collégiales enregistrées</h3>{collectiveApprovals.map(a=>{const r=reports.find(x=>x.id===a.report_id);return <div className="approvalRow" key={a.id}><b>{r?.report_number||"Rapport AIAC"} · {a.decision==="approved"?"Approuvé":"Retourné"}</b><p><b>Autorité :</b> {a.authority_name||"Conseil d’administration"}</p><p><b>Décision enregistrée par :</b> {a.actor_name}</p><p><b>PV :</b> {a.mandate_reference||"—"}</p><p><b>Référence :</b> {a.validation_reference||a.decision_reference||"—"}</p><p><b>Date :</b> {formatDate(a.decision_date||a.signed_at)}</p><p><b>Éléments apposés :</b> signature{a.nominal_seal_asset_path?" + cachet nominatif":""}{a.round_seal_asset_path?" + cachet rond":""}</p>{a.comment&&<p><b>Observation :</b> {a.comment}</p>}<code>{a.content_hash}</code></div>;})}</div>}
+ </section>;
 }
