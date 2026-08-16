@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import UniversalTaskReporter from "@/components/UniversalTaskReporter";
 import AgentTaskInbox from "@/components/AgentTaskInbox";
 import CollectiveValidationAlert from "@/components/CollectiveValidationAlert";
+import InstitutionalReportsCenter from "@/components/InstitutionalReportsCenter";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import { roleLabels } from "@/components/AccountsPanel";
 
@@ -18,6 +19,7 @@ const links = [
   ["annonces", "Annonces"],
   ["profil", "Mon profil"],
   ["terrain", "Cycle des programmes"],
+  ["reports", "Centre des rapports"],
   ["operations", "Demandes et interventions"],
   ["institution", "Gouvernance et membres"],
   ["documents", "Documents sécurisés"],
@@ -41,6 +43,10 @@ export default function ProgramCycleLandingPortal({ profile }: { profile: Accoun
   }
 
   function openTab(id: string) {
+    if (id === "reports") {
+      document.getElementById("centre-rapports")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     router.push(id === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(id)}`);
   }
 
@@ -93,6 +99,8 @@ export default function ProgramCycleLandingPortal({ profile }: { profile: Accoun
         </header>
 
         <CollectiveValidationAlert profileId={profile.id} />
+
+        <InstitutionalReportsCenter />
 
         <div className="portalPanel fieldHero">
           <div>
