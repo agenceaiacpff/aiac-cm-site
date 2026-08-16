@@ -8,6 +8,8 @@ import AgentTaskInbox from "@/components/AgentTaskInbox";
 import ProgramCycleContextBridge from "@/components/ProgramCycleContextBridge";
 import CollectiveValidationPanel from "@/components/CollectiveValidationPanel";
 import InstitutionalReportsCenter from "@/components/InstitutionalReportsCenter";
+import UniversalTaskReporter from "@/components/UniversalTaskReporter";
+import ProgramCycleManagementConsole from "@/components/ProgramCycleManagementConsole";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import { roleLabels } from "@/components/AccountsPanel";
 import type {
@@ -140,7 +142,18 @@ export default function ProgramCyclePortal(props: Props) {
             {props.profile.status === "active" ? "Compte actif" : props.profile.status}
           </span>
         </header>
+
         <AgentTaskInbox />
+        <UniversalTaskReporter />
+        <ProgramCycleManagementConsole
+          profile={props.profile as OperationProfile}
+          programs={props.programs}
+          projects={props.projects}
+          activities={props.activities}
+          projectMembers={props.projectMembers}
+          staffProfiles={props.staffProfiles}
+          bodies={props.bodies}
+        />
         <CollectiveValidationPanel
           profile={props.profile as OperationProfile}
           reports={props.initialTaskReports}
