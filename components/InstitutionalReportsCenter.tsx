@@ -1,3 +1,3 @@
 "use client";
 
-export { default } from "@/components/InstitutionalReportsCenterV3";
+export { default } from "@/components/InstitutionalReportsCenterV4";
