@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 
-const MeetingsPanel = dynamic(() => import("./MeetingsPanelHeavy"), {
+const MeetingsPanel = dynamic(() => import("./MeetingsPanelV2"), {
   loading: () => <div className="portalPanel"><p>Chargement des réunions…</p></div>,
 });
 
