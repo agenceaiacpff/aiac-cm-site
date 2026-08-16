@@ -69,15 +69,19 @@ export default function PortalTabNavigator({ activeTab }: { activeTab: string })
       const { tab } = match;
 
       if (localTabs.has(tab)) {
-        // Ces écrans utilisent déjà les données présentes en mémoire : pas de trajet serveur.
+        // Laisser le onClick React modifier immédiatement l’écran, puis synchroniser l’URL sans trajet serveur.
         window.history.replaceState({}, "", routeFor(tab));
         return;
       }
 
       if (tab === activeTab) return;
+
+      // IMPORTANT : ne jamais stopper la propagation ici.
+      // Le bouton React doit d’abord exécuter setTab(tab), sinon l’URL change alors que l’écran reste figé.
       event.preventDefault();
-      event.stopPropagation();
-      router.push(routeFor(tab));
+      queueMicrotask(() => {
+        router.push(routeFor(tab));
+      });
     };
 
     document.addEventListener("pointerover", onPointerOver, true);
