@@ -3,7 +3,7 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import type { TaskReportRow } from "@/components/FieldReportingPanel";
+import type { TaskReportApprovalRow, TaskReportRow } from "@/components/FieldReportingPanel";
 import type { OperationBody, OperationProfile } from "@/components/OperationsPanel";
 import type { InstitutionalSignatureAsset } from "@/lib/institutional-signatures";
 
@@ -12,9 +12,18 @@ type CollectiveTaskReport = TaskReportRow & {
   validation_authority_body_id?: string | null;
 };
 
+type CollectiveApproval = TaskReportApprovalRow & {
+  authority_type?: string;
+  authority_body_id?: string | null;
+  authority_name?: string | null;
+  decision_reference?: string | null;
+  decision_date?: string | null;
+};
+
 type Props = {
   profile: OperationProfile;
   reports: TaskReportRow[];
+  approvals: TaskReportApprovalRow[];
   bodies: OperationBody[];
   signatureAssets: InstitutionalSignatureAsset[];
 };
@@ -28,8 +37,9 @@ type LastDecision = {
   decision: "approved" | "returned";
 };
 
-function formatDate(value: string) {
-  return new Date(`${value}T12:00:00`).toLocaleDateString("fr-FR", {
+function formatDate(value: string | null | undefined) {
+  if (!value) return "—";
+  return new Date(`${value.slice(0, 10)}T12:00:00`).toLocaleDateString("fr-FR", {
     day: "2-digit",
     month: "long",
     year: "numeric",
@@ -39,6 +49,7 @@ function formatDate(value: string) {
 export default function CollectiveValidationPanel({
   profile,
   reports,
+  approvals,
   bodies,
   signatureAssets,
 }: Props) {
@@ -57,6 +68,15 @@ export default function CollectiveValidationPanel({
   const [notice, setNotice] = useState("");
   const [signatureUrl, setSignatureUrl] = useState("");
   const [lastDecision, setLastDecision] = useState<LastDecision | null>(null);
+
+  const collectiveApprovals = useMemo(
+    () =>
+      (approvals as CollectiveApproval[])
+        .filter((item) => item.authority_type === "collective_body")
+        .slice()
+        .sort((a, b) => b.created_at.localeCompare(a.created_at)),
+    [approvals],
+  );
 
   const officialSignature = useMemo(
     () =>
@@ -123,8 +143,7 @@ export default function CollectiveValidationPanel({
     decision: "approved" | "returned",
   ) {
     event.preventDefault();
-    const form = event.currentTarget;
-    const data = new FormData(form);
+    const data = new FormData(event.currentTarget);
     const reference = String(data.get("decision_reference") || "").trim();
     const date = String(data.get("decision_date") || "");
     const comment = String(data.get("comment") || "").trim();
@@ -175,17 +194,16 @@ export default function CollectiveValidationPanel({
     router.refresh();
   }
 
-  if (!pendingReports.length && !lastDecision) return null;
+  if (!pendingReports.length && !lastDecision && !collectiveApprovals.length) return null;
 
   return (
     <section id="collective-validation" className="portalPanel">
       <div className="panelTitle">
         <div>
           <p className="eyebrow">Gouvernance · Conseil d’administration</p>
-          <h2>Rapports soumis à la validation collégiale</h2>
+          <h2>Validation collégiale des rapports</h2>
           <p>
-            Vous enregistrez ici la décision du Conseil en qualité de membre habilité.
-            L’autorité de validation reste le Conseil d’administration et non votre fonction individuelle.
+            Le membre habilité enregistre la décision du Conseil. L’autorité de validation reste le Conseil d’administration, jamais la fonction individuelle du signataire.
           </p>
         </div>
         {pendingReports.length > 0 && (
@@ -246,17 +264,10 @@ export default function CollectiveValidationPanel({
               )}
             </div>
 
-            <form
-              className="reviewForm"
-              onSubmit={(event) => recordDecision(event, report, "approved")}
-            >
+            <form className="reviewForm" onSubmit={(event) => recordDecision(event, report, "approved")}>
               <label>
                 Référence de décision / PV
-                <input
-                  name="decision_reference"
-                  placeholder="Ex. PV-CA-2026-08-16 / Résolution n°…"
-                  required
-                />
+                <input name="decision_reference" placeholder="Ex. PV-CA-2026-08-16 / Résolution n°…" required />
               </label>
               <label>
                 Date de la décision
@@ -266,42 +277,55 @@ export default function CollectiveValidationPanel({
               <button className="approveButton" disabled={busyId === report.id || !officialSignature}>
                 {busyId === report.id ? "Enregistrement…" : "Valider au nom du Conseil d’administration"}
               </button>
-              {!officialSignature && (
-                <small>Une signature officielle active est nécessaire pour enregistrer la décision.</small>
-              )}
+              {!officialSignature && <small>Une signature officielle active est nécessaire pour enregistrer la décision.</small>}
             </form>
 
             <details>
               <summary>Retourner le rapport pour correction</summary>
-              <form
-                className="reviewForm returnForm"
-                onSubmit={(event) => recordDecision(event, report, "returned")}
-              >
-                <label>
-                  Référence de décision / PV
-                  <input name="decision_reference" required />
-                </label>
-                <label>
-                  Date de la décision
-                  <input name="decision_date" type="date" defaultValue={today} required />
-                </label>
-                <textarea
-                  name="comment"
-                  minLength={5}
-                  placeholder="Corrections précises demandées par le Conseil"
-                  required
-                />
-                <label className="evidenceReviewChoice">
-                  <input name="require_evidence" type="checkbox" /> Exiger au moins une preuve à la prochaine soumission
-                </label>
-                <button disabled={busyId === report.id || !officialSignature}>
-                  Enregistrer le retour du Conseil
-                </button>
+              <form className="reviewForm returnForm" onSubmit={(event) => recordDecision(event, report, "returned")}>
+                <label>Référence de décision / PV<input name="decision_reference" required /></label>
+                <label>Date de la décision<input name="decision_date" type="date" defaultValue={today} required /></label>
+                <textarea name="comment" minLength={5} placeholder="Corrections précises demandées par le Conseil" required />
+                <label className="evidenceReviewChoice"><input name="require_evidence" type="checkbox" /> Exiger au moins une preuve à la prochaine soumission</label>
+                <button disabled={busyId === report.id || !officialSignature}>Enregistrer le retour du Conseil</button>
               </form>
             </details>
           </article>
         );
       })}
+
+      {collectiveApprovals.length > 0 && (
+        <div className="reportSubsection">
+          <h3>Décisions collégiales enregistrées</h3>
+          {collectiveApprovals.map((approval) => {
+            const report = reports.find((item) => item.id === approval.report_id);
+            const showCurrentSignature = approval.actor_id === profile.id && signatureUrl;
+            return (
+              <div className="approvalRow" key={approval.id}>
+                <b>{report?.report_number || "Rapport AIAC"} · {approval.decision === "approved" ? "Approuvé" : "Retourné"}</b>
+                <p><b>Autorité de validation :</b> {approval.authority_name || "Conseil d’administration"}</p>
+                <p><b>Décision enregistrée par :</b> {approval.actor_name}</p>
+                <p><b>Référence de décision/PV :</b> {approval.decision_reference || "—"}</p>
+                <p><b>Date :</b> {formatDate(approval.decision_date || approval.signed_at)}</p>
+                {approval.comment && <p><b>Observation :</b> {approval.comment}</p>}
+                <div>
+                  <b>Signature :</b>
+                  {showCurrentSignature ? (
+                    <div className="official-assets">
+                      <figure className="official-asset composite_signature">
+                        <img src={signatureUrl} alt={`Signature officielle de ${approval.actor_name}`} />
+                      </figure>
+                    </div>
+                  ) : (
+                    <span> signature officielle enregistrée dans le dossier de décision.</span>
+                  )}
+                </div>
+                <code>{approval.content_hash}</code>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </section>
   );
 }
