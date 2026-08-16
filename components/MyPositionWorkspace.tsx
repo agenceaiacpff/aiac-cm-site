@@ -1,4 +1,4 @@
 "use client";
 
-// Espace professionnel V3 audité : droits, recherches, notifications, traçabilité et administration.
+// Mon poste V3 : audit final des droits, recherches, notifications, traçabilité et super-administration.
 export { default } from "@/components/MyPositionWorkspaceV3";
