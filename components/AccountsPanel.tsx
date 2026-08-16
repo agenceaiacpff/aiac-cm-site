@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/client";
 import ListToolbar, { exportCsv, paginate } from "@/components/ListToolbar";
 import type { GovernanceBodyRow } from "@/components/InstitutionalPanel";
 import type { SessionActivityRow } from "@/components/AuditCenter";
+import {
+  institutionalAssetLabels,
+  type InstitutionalSignatureAsset,
+} from "@/lib/institutional-signatures";
 
 export type AccountProfile = {
   id: string;
@@ -65,6 +69,7 @@ export default function AccountsPanel({
   initialPermissionOverrides,
   initialAccountScopes,
   initialSessions,
+  initialSignatureAssets,
 }: {
   currentProfile: AccountProfile;
   initialProfiles: AccountProfile[];
@@ -77,6 +82,7 @@ export default function AccountsPanel({
   initialPermissionOverrides: PermissionOverrideRow[];
   initialAccountScopes: AccountScopeRow[];
   initialSessions: SessionActivityRow[];
+  initialSignatureAssets: InstitutionalSignatureAsset[];
 }) {
   const supabase = useMemo(() => createClient(), []);
   const [profiles, setProfiles] = useState(initialProfiles);
@@ -86,6 +92,7 @@ export default function AccountsPanel({
   const [permissionOverrides,setPermissionOverrides]=useState(initialPermissionOverrides);
   const [accountScopes,setAccountScopes]=useState(initialAccountScopes);
   const [sessions,setSessions]=useState(initialSessions);
+  const [signatureAssets,setSignatureAssets]=useState(initialSignatureAssets);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [page, setPage] = useState(1);
@@ -221,6 +228,42 @@ export default function AccountsPanel({
     if(error)setNotice(error.message);else{setPermissionOverrides(rows=>rows.filter(row=>row.id!==id));setNotice("Dérogation de permission retirée.");}setBusy(false);
   }
 
+  async function uploadInstitutionalAsset(event:FormEvent<HTMLFormElement>,account:AccountProfile){
+    event.preventDefault();setBusy(true);const form=event.currentTarget;const data=new FormData(form);
+    const file=data.get("asset_file");const assetType=String(data.get("asset_type")) as InstitutionalSignatureAsset["asset_type"];
+    if(!(file instanceof File)||!file.size){setNotice("Sélectionnez l’image officielle à enregistrer.");setBusy(false);return;}
+    if(file.size>2*1024*1024||!["image/jpeg","image/png","image/webp"].includes(file.type)){setNotice("L’actif doit être une image JPG, PNG ou WebP de 2 Mo maximum.");setBusy(false);return;}
+    const safeName=file.name.normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/[^a-zA-Z0-9._-]/g,"-").replace(/-+/g,"-").slice(-120);
+    const storagePath=`${account.id}/${assetType}/${crypto.randomUUID()}-${safeName}`;
+    const uploaded=await supabase.storage.from("aiac-signatures").upload(storagePath,file,{contentType:file.type,upsert:false});
+    if(uploaded.error){setNotice(uploaded.error.message);setBusy(false);return;}
+    const {data:created,error}=await supabase.rpc("register_institutional_signature_asset",{
+      target_profile_id:account.id,
+      target_body_id:String(data.get("body_id")||"")||null,
+      selected_asset_type:assetType,
+      selected_storage_path:storagePath,
+      selected_file_name:file.name,
+      selected_mime_type:file.type,
+      selected_official_title:String(data.get("official_title")||"").trim()||null,
+      selected_decision_reference:String(data.get("decision_reference")||"").trim()||null,
+    });
+    if(error||!created){await supabase.storage.from("aiac-signatures").remove([storagePath]);setNotice(error?.message||"Enregistrement impossible");setBusy(false);return;}
+    setSignatureAssets(rows=>[
+      created as InstitutionalSignatureAsset,
+      ...rows.map(row=>row.profile_id===account.id&&row.asset_type===assetType?{...row,is_default:false}:row),
+    ]);
+    form.reset();setNotice(`${institutionalAssetLabels[assetType]} enregistrée comme actif officiel par défaut.`);setBusy(false);
+  }
+
+  async function revokeInstitutionalAsset(asset:InstitutionalSignatureAsset){
+    if(!window.confirm(`Révoquer « ${institutionalAssetLabels[asset.asset_type]} » ? Les anciens rapports conserveront leur traçabilité.`))return;
+    setBusy(true);const {data:updated,error}=await supabase.rpc("revoke_institutional_signature_asset",{target_asset_id:asset.id});
+    if(error||!updated)setNotice(error?.message||"Révocation impossible");else{
+      setSignatureAssets(rows=>rows.map(row=>row.id===asset.id?updated as InstitutionalSignatureAsset:row));
+      setNotice("Actif institutionnel révoqué. Le fichier historique est conservé dans le stockage privé.");
+    }setBusy(false);
+  }
+
   return (
     <section className="operationsWorkspace">
       {notice && <div className="notice" role="status">{notice}<button onClick={() => setNotice("")}>×</button></div>}
@@ -248,6 +291,7 @@ export default function AccountsPanel({
         const accountScopesForUser=accountScopes.filter(row=>row.profile_id===account.id);
         const overridesForUser=permissionOverrides.filter(row=>row.profile_id===account.id);
         const sessionsForUser=sessions.filter(row=>row.user_id===account.id);
+        const signatureAssetsForUser=signatureAssets.filter(row=>row.profile_id===account.id);
         return (
           <details className="workflowCard" key={account.id}>
             <summary>
@@ -277,6 +321,7 @@ export default function AccountsPanel({
                 {assignments.filter(row=>row.profile_id===account.id).map(row=>{const position=initialPositions.find(item=>item.id===row.position_id);const body=initialBodies.find(item=>item.id===row.body_id);return <div className="eventItem" key={row.id}><b>{position?.title||"Poste"}</b><p>{body?.code} · {body?.name}{row.territory?` · ${row.territory}`:""}</p><small>{row.decision_reference} · depuis le {new Date(row.start_date).toLocaleDateString("fr-FR")}</small></div>})}
                 {isSuperAdmin&&<form className="operationForm compact" onSubmit={event=>assignPosition(event,account)}><select name="position_id" required><option value="">Poste officiel</option>{initialPositions.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.title}</option>)}</select><select name="body_id" required><option value="">Organe / niveau</option>{initialBodies.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}</option>)}</select><input name="territory" placeholder="Région, antenne ou territoire"/><input name="decision_reference" minLength={2} placeholder="Décision / délégation de référence" required/><label>Début<input name="start_date" type="date" defaultValue={new Date().toISOString().slice(0,10)} required/></label><button disabled={busy}>Affecter le poste</button></form>}
               </div>
+              {isSuperAdmin&&<div className="eventTimeline"><h3>Signatures et cachets officiels</h3><p>Les actifs actifs sont insérés automatiquement lors de la signature et apparaissent dans les rapports produits.</p>{signatureAssetsForUser.map(asset=>{const body=initialBodies.find(item=>item.id===asset.body_id);return <div className="eventItem" key={asset.id}><b>{institutionalAssetLabels[asset.asset_type]} · {asset.status==="active"?"Actif":"Révoqué"}</b><p>{asset.file_name}{asset.official_title?` · ${asset.official_title}`:""}</p><small>{body?`${body.code} · ${body.name}`:"Portée institutionnelle générale"}{asset.decision_reference?` · ${asset.decision_reference}`:""}{asset.status==="active"&&<button type="button" onClick={()=>revokeInstitutionalAsset(asset)} disabled={busy}>Révoquer</button>}</small></div>})}<form className="operationForm compact" onSubmit={event=>uploadInstitutionalAsset(event,account)}><select name="asset_type" required><option value="signature">Signature officielle</option><option value="round_seal">Cachet rond</option><option value="nominal_seal">Cachet nominatif</option><option value="composite_signature">Signature et cachet composés</option></select><select name="body_id"><option value="">Portée institutionnelle générale</option>{initialBodies.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}</option>)}</select><input name="official_title" placeholder="Fonction officielle affichée"/><input name="decision_reference" placeholder="Décision / référence de validation"/><label>Image officielle<input name="asset_file" type="file" accept="image/jpeg,image/png,image/webp" required/></label><button disabled={busy}>Enregistrer comme actif officiel</button></form></div>}
               {isSuperAdmin&&<div className="eventTimeline"><h3>Périmètres d’accès structurés</h3>{accountScopesForUser.map(row=>{const body=initialBodies.find(item=>item.id===row.body_id);return <div className="eventItem" key={row.id}><b>{row.permission_level} · {row.scope_type}</b><p>{body?`${body.code} · ${body.name}`:"Projet"}{row.territory?` · ${row.territory}`:""}</p><small>{row.decision_reference} · depuis le {new Date(row.starts_on).toLocaleDateString("fr-FR")}</small></div>})}<form className="operationForm compact" onSubmit={event=>assignScope(event,account)}><select name="scope_type"><option value="body">Organe</option><option value="service">Service</option><option value="regional_coordination">Coordination régionale</option><option value="antenna">Antenne</option></select><select name="body_id" required><option value="">Structure</option>{initialBodies.filter(row=>row.status==="active").map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}{row.region?` · ${row.region}`:""}</option>)}</select><select name="permission_level"><option value="viewer">Consultation</option><option value="contributor">Contribution</option><option value="manager">Gestion</option><option value="authority">Autorité</option></select><input name="territory" placeholder="Territoire précis"/><input name="decision_reference" minLength={2} placeholder="Décision / note de service" required/><label>Début<input name="starts_on" type="date" defaultValue={new Date().toISOString().slice(0,10)} required/></label><label>Fin<input name="ends_on" type="date"/></label><button disabled={busy}>Attribuer le périmètre</button></form></div>}
               {isSuperAdmin&&<div className="eventTimeline"><h3>Permissions individuelles granulaires</h3>{overridesForUser.map(row=><div className="eventItem" key={row.id}><b>{row.effect==="allow"?"AUTORISER":"REFUSER"} · {row.permission_code}</b><p>{row.scope_type}{row.scope_value?` · ${row.scope_value}`:""} · {row.reason}</p><small>{row.expires_at?`Expire le ${new Date(row.expires_at).toLocaleString("fr-FR")}`:"Sans expiration"} <button type="button" onClick={()=>removePermission(row.id)} disabled={busy}>Retirer</button></small></div>)}<form className="operationForm compact" onSubmit={event=>grantPermission(event,account)}><select name="permission_code" required><option value="">Permission</option>{initialPermissions.map(row=><option value={row.code} key={row.code}>{row.name} · {row.code}</option>)}</select><select name="effect"><option value="allow">Autoriser</option><option value="deny">Refuser</option></select><select name="scope_type"><option value="global">Global</option><option value="body">Organe</option><option value="service">Service</option><option value="antenna">Antenne</option><option value="region">Région</option></select><select name="body_id"><option value="">Structure si nécessaire</option>{initialBodies.map(row=><option value={row.id} key={row.id}>{row.code} · {row.name}</option>)}</select><input name="scope_value" placeholder="Nom de la région si applicable"/><input name="reason" minLength={5} placeholder="Motif de la dérogation" required/><label>Expiration<input name="expires_at" type="datetime-local"/></label><button disabled={busy}>Enregistrer</button></form></div>}
               {isSuperAdmin&&<div className="eventTimeline"><h3>Sécurité, adresse électronique et appareils</h3><p>{account.email_verified_at?`Adresse vérifiée le ${new Date(account.email_verified_at).toLocaleString("fr-FR")}`:"Adresse non confirmée administrativement"} · {account.must_reset_password?"Changement de mot de passe obligatoire":"Mot de passe non signalé"}</p><div className="institutionalSplit"><form className="commentForm" onSubmit={event=>revokeSessions(event,account)}><input name="reason" minLength={5} placeholder="Motif de révocation des sessions" required/><button disabled={busy||account.id===currentProfile.id}>Révoquer toutes les sessions</button></form><form className="commentForm" onSubmit={event=>invokeAccountAction(event,account,"require_password_reset")}><input name="reason" minLength={5} placeholder="Motif de la réinitialisation" required/><button disabled={busy||account.id===currentProfile.id}>Envoyer un nouveau lien de réinitialisation</button></form>{!account.email_verified_at&&<form className="commentForm" onSubmit={event=>invokeAccountAction(event,account,"verify_email")}><input name="reason" minLength={5} placeholder="Justification de la vérification manuelle" required/><button disabled={busy}>Vérifier l’adresse e-mail</button></form>}</div><form className="operationForm compact" onSubmit={event=>setTemporaryPassword(event,account)}><h4>Définir un mot de passe temporaire</h4><input name="password" type="password" minLength={12} autoComplete="new-password" placeholder="Nouveau mot de passe temporaire" required/><input name="confirmation" type="password" minLength={12} autoComplete="new-password" placeholder="Confirmer le mot de passe" required/><input name="reason" minLength={5} maxLength={1000} placeholder="Motif administratif obligatoire" required/><button disabled={busy||account.id===currentProfile.id}>Définir et imposer son remplacement</button></form>{sessionsForUser.length? sessionsForUser.map(row=><div className="eventItem" key={row.id}><b>{row.revoked_at?"Session révoquée":"Session observée"}</b><p>{row.source_ip||"IP non disponible"} · {row.user_agent?.slice(0,140)||"Appareil non renseigné"}</p><small>Première connexion {new Date(row.first_seen_at).toLocaleString("fr-FR")} · dernière activité {new Date(row.last_seen_at).toLocaleString("fr-FR")}</small></div>):<p>Aucune session observée pour ce compte.</p>}<form className="operationForm compact" onSubmit={event=>deleteAccount(event,account)}><h4>Zone de suppression définitive</h4><p>La suppression est refusée si elle ferait disparaître des messages, demandes, tâches, conversations ou documents institutionnels.</p><input name="confirmation" type="email" placeholder={`Recopier ${account.email||"l’adresse e-mail"}`} required/><input name="reason" minLength={10} maxLength={1000} placeholder="Motif détaillé de la suppression" required/><button className="danger" disabled={busy||account.id===currentProfile.id}>Supprimer définitivement le compte</button></form></div>}
