@@ -7,6 +7,7 @@ import HierarchicalProgramCycle from "@/components/HierarchicalProgramCycle";
 import AgentTaskInbox from "@/components/AgentTaskInbox";
 import ProgramCycleContextBridge from "@/components/ProgramCycleContextBridge";
 import CollectiveValidationPanel from "@/components/CollectiveValidationPanel";
+import InstitutionalReportsCenter from "@/components/InstitutionalReportsCenter";
 import type { AccountProfile } from "@/components/AccountsPanel";
 import { roleLabels } from "@/components/AccountsPanel";
 import type {
@@ -38,6 +39,7 @@ const links = [
   ["annonces", "Annonces"],
   ["profil", "Mon profil"],
   ["terrain", "Cycle des programmes"],
+  ["reports", "Centre des rapports"],
   ["operations", "Demandes et interventions"],
   ["institution", "Gouvernance et membres"],
   ["documents", "Documents sécurisés"],
@@ -84,6 +86,10 @@ export default function ProgramCyclePortal(props: Props) {
   }
 
   function openTab(id: string) {
+    if (id === "reports") {
+      document.getElementById("centre-rapports")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
     router.push(id === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(id)}`);
   }
 
@@ -142,6 +148,7 @@ export default function ProgramCyclePortal(props: Props) {
           bodies={props.bodies}
           signatureAssets={props.institutionalSignatureAssets}
         />
+        <InstitutionalReportsCenter />
         <HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} />
       </main>
     </div>
