@@ -1,0 +1,49 @@
+name: Patch My Position reference admin
+'on':
+  push:
+    paths:
+      - '.github/workflows/patch-my-position-reference-admin.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch My Position V3
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('components/MyPositionWorkspaceV3.tsx')
+          s=p.read_text()
+          old='import { createClient } from "@/lib/supabase/client";'
+          new='import { createClient } from "@/lib/supabase/client";\nimport PositionReferenceAdmin from "@/components/PositionReferenceAdmin";'
+          if old not in s: raise SystemExit('import anchor missing')
+          s=s.replace(old,new,1)
+          old=' const visibleSlots=useMemo(()=>{const q=staffSearch.trim().toLowerCase();return staffing.filter(s=>(staffStatus==="all"||s.slot_status===staffStatus)&&(!q||`${s.slot_code} ${s.title} ${s.body_code} ${s.body_name} ${s.region||""} ${s.locality||""} ${s.project_code||""} ${s.project_name||""}`.toLowerCase().includes(q)));},[staffing,staffSearch,staffStatus]);'
+          new=' const visibleSlots=useMemo(()=>{const q=staffSearch.trim().toLowerCase();return staffing.filter(s=>{const holders=assignmentsCatalog.filter(a=>a.slot_id===s.slot_id).map(a=>`${a.full_name||""} ${a.email||""}`).join(" ");return (staffStatus==="all"||s.slot_status===staffStatus)&&(!q||`${s.slot_code} ${s.title} ${s.body_code} ${s.body_name} ${s.region||""} ${s.locality||""} ${s.project_code||""} ${s.project_name||""} ${holders}`.toLowerCase().includes(q));});},[staffing,assignmentsCatalog,staffSearch,staffStatus]);'
+          if old not in s: raise SystemExit('visibleSlots anchor missing')
+          s=s.replace(old,new,1)
+          old=' async function processMail(m:Mail,status:string){const comment=window.prompt(`Commentaire pour passer le courrier à « ${labelStatus[status]||status} » :`)||"";await action(async()=>{const r=await supabase.rpc("process_correspondence",{target_id:m.id,target_status:status,target_comment:comment||null});err(r.error);return r.data;},"État du courrier mis à jour et tracé.");}'
+          new=' async function processMail(m:Mail,status:string){const comment=window.prompt(`Commentaire pour passer le courrier à « ${labelStatus[status]||status} » :`);if(comment===null)return;await action(async()=>{const r=await supabase.rpc("process_correspondence",{target_id:m.id,target_status:status,target_comment:comment.trim()||null});err(r.error);return r.data;},"État du courrier mis à jour et tracé.");}'
+          if old not in s: raise SystemExit('processMail anchor missing')
+          s=s.replace(old,new,1)
+          for label in ['processing','waiting','replied','closed']:
+              old=f'<button className="secondary" onClick={{()=>void processMail(m,"{label}")}}>'
+              new=f'<button className="secondary" disabled={{busy}} onClick={{()=>void processMail(m,"{label}")}}>'
+              if old not in s: raise SystemExit(f'button {label} anchor missing')
+              s=s.replace(old,new,1)
+          anchor='\n  </>}\n\n  {section==="correspondence"'
+          replacement='\n   {isSuperAdmin&&<PositionReferenceAdmin/>}\n  </>}\n\n  {section==="correspondence"'
+          if anchor not in s: raise SystemExit('staffing end anchor missing')
+          s=s.replace(anchor,replacement,1)
+          p.write_text(s)
+          PY
+      - name: Commit patch and remove workflow
+        run: |
+          git rm .github/workflows/patch-my-position-reference-admin.yml
+          git config user.name "agenceaiacpff"
+          git config user.email "84762273+agenceaiacpff@users.noreply.github.com"
+          git add components/MyPositionWorkspaceV3.tsx
+          git commit -m "Complete My Position super-admin reference controls"
+          git push
