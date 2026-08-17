@@ -1,5 +1,5 @@
 "use client";
-// AIAC secure Office reader: DOCX and XLSX are rendered from the original physical file.
+// AIAC secure Office reader: DOCX and XLSX are rendered from the original physical file; production deploy retry after Vercel rate-limit.
 
 import DOMPurify from "dompurify";
 import Link from "next/link";
@@ -81,6 +81,6 @@ export default function SecureDocumentReader({documentId}:{documentId:string}){
     {!isDocx&&!isExcel&&(safe?<div dangerouslySetInnerHTML={{__html:safe}}/>:<iframe title={data.title} src={`/api/documents/${documentId}/view`} style={{width:'100%',height:'75vh',border:0}}/>)}
    </div>
   </section>
-  {data.secure_view_only&&<p><small>Mesures de dissuasion actives : filigrane nominatif, copie/impression/enregistrement navigateur neutralisés et consultation journalisée. Un appareil externe ou une capture au niveau du système d’exploitation ne peut pas être techniquement empêché de façon absolue par une application web.</small></p>}
+  {data.secure_view_only&&<p><small>Mesures de dissuasion actives : filigrane nominatif, copie/impression/enregistrement navigateur neutralisés et consultation journalisée. Un appareil externe ou une capture au niveau du système d’exploitation ne peut pas être techniquement empêchée de façon absolue par une application web.</small></p>}
  </main>;
 }
