@@ -1,0 +1,31 @@
+name: Patch My Position notification links
+'on':
+  push:
+    paths:
+      - '.github/workflows/patch-my-position-header-links.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch header links
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('components/MyPositionWorkspaceV3.tsx')
+          s=p.read_text()
+          old='<div className="pwButtons"><button className="secondary" onClick={()=>void refresh()} disabled={busy}>Actualiser</button><Link className="secondary" href="/espace">← Portail</Link><Link href="/espace/terrain">Cycle des programmes</Link></div></header>'
+          new='<div className="pwButtons"><button className="secondary" onClick={()=>void refresh()} disabled={busy}>Actualiser</button><Link className="secondary" href="/espace?tab=notifications">Notifications</Link>{isSuperAdmin&&<Link className="secondary" href="/espace?tab=audit">Audit</Link>}<Link className="secondary" href="/espace">← Portail</Link><Link href="/espace/terrain">Cycle des programmes</Link></div></header>'
+          if old not in s: raise SystemExit('header anchor missing')
+          p.write_text(s.replace(old,new,1))
+          PY
+      - name: Commit patch and remove workflow
+        run: |
+          git rm .github/workflows/patch-my-position-header-links.yml
+          git config user.name "agenceaiacpff"
+          git config user.email "84762273+agenceaiacpff@users.noreply.github.com"
+          git add components/MyPositionWorkspaceV3.tsx
+          git commit -m "Link My Position to notifications and audit"
+          git push
