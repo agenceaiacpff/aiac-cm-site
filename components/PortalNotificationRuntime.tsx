@@ -4,8 +4,8 @@ import {useCallback,useEffect,useMemo,useRef,useState} from "react";
 import {createClient} from "@/lib/supabase/client";
 
 type StartAlert={id:string;code:string;title:string;description:string|null;agenda:string|null;starts_at:string;ends_at:string;timezone:string;venue:string|null;modality:string;meeting_url:string|null;access_instructions:string|null;organizer_id:string;organizer_name:string;organizer_email:string|null};
-
 type IncomingNotification={id:string;title:string;category?:string|null;read_at?:string|null};
+type RealtimePayload={new:unknown};
 
 function formatDate(value:string){return new Date(value).toLocaleString("fr-FR",{dateStyle:"full",timeStyle:"short",timeZone:"Africa/Douala"});}
 
@@ -98,7 +98,7 @@ export default function PortalNotificationRuntime({profileId}:{profileId:string}
    const sidebar=document.querySelector(".portalSidebar");if(sidebar)observer.observe(sidebar,{childList:true,subtree:true});
    const polling=window.setInterval(()=>{void refreshMeetingBadge();void refreshStartAlert();repairMeetingLabels();},30000);
    const channel=supabase.channel(`portal-global-notifications:${profileId}`)
-     .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:`user_id=eq.${profileId}`},payload=>{
+     .on("postgres_changes",{event:"INSERT",schema:"public",table:"notifications",filter:`user_id=eq.${profileId}`},(payload:RealtimePayload)=>{
        const incoming=payload.new as IncomingNotification;playChime();void refreshMeetingBadge();if(incoming.category==="meeting_start")window.setTimeout(()=>void refreshStartAlert(),250);
      })
      .on("postgres_changes",{event:"UPDATE",schema:"public",table:"notifications",filter:`user_id=eq.${profileId}`},()=>void refreshMeetingBadge())
