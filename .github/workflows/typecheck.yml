@@ -1,4 +1,4 @@
-name: TypeScript check
+name: TypeScript and production build
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  typecheck:
+  verify:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -14,5 +14,9 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - run: npx tsc --noEmit --pretty false
+      - name: Install exact dependencies
+        run: npm ci
+      - name: TypeScript check
+        run: npx tsc --noEmit --pretty false
+      - name: Next.js production build
+        run: npm run build
