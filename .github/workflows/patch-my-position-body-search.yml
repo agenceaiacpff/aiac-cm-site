@@ -1,0 +1,44 @@
+name: Patch My Position body search
+'on':
+  push:
+    paths:
+      - '.github/workflows/patch-my-position-body-search.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch body scope and searchable selectors
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p=Path('components/MyPositionWorkspaceV3.tsx')
+          s=p.read_text()
+          old=' const [teamSearch,setTeamSearch]=useState(""),[resourceSearch,setResourceSearch]=useState("");'
+          new=' const [teamSearch,setTeamSearch]=useState(""),[resourceSearch,setResourceSearch]=useState(""),[bodySearch,setBodySearch]=useState("");'
+          if old not in s: raise SystemExit('state anchor missing')
+          s=s.replace(old,new,1)
+          old=' const bodies=useMemo(()=>Array.from(new Map((workspace?.assignments||[]).map(a=>[a.body_id,{id:a.body_id,code:a.body_code,name:a.body_name}])).values()),[workspace]);'
+          new=' const bodies=useMemo(()=>{const all=[...(isSuperAdmin?staffing.map(s=>({id:s.body_id,code:s.body_code,name:s.body_name})):[]),...(workspace?.assignments||[]).map(a=>({id:a.body_id,code:a.body_code,name:a.body_name})),...(workspace?.linked_projects||[]).map(p=>({id:p.body_id,code:p.body_code,name:p.body_name}))];return all.filter((b,i)=>all.findIndex(x=>x.id===b.id)===i);},[workspace,staffing,isSuperAdmin]);\n const filteredBodies=useMemo(()=>{const q=bodySearch.trim().toLowerCase();return bodies.filter(b=>!q||`${b.code} ${b.name}`.toLowerCase().includes(q));},[bodies,bodySearch]);'
+          if old not in s: raise SystemExit('bodies anchor missing')
+          s=s.replace(old,new,1)
+          old='<label>Organe<select name="body_id" required>{bodies.length?bodies.map(b=><option key={b.id} value={b.id}>{b.code} · {b.name}</option>):workspace.linked_projects.map(p=><option key={p.body_id} value={p.body_id}>{p.body_code} · {p.body_name}</option>)}</select></label>'
+          new='<label className="wide">Rechercher l’organe<input value={bodySearch} onChange={e=>setBodySearch(e.target.value)} placeholder="Code, organe, coordination régionale…"/></label><label>Organe<select name="body_id" required><option value="">Choisir un organe</option>{filteredBodies.map(b=><option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}</select></label>'
+          if old not in s: raise SystemExit('correspondence body anchor missing')
+          s=s.replace(old,new,1)
+          old='<form className="pwForm" onSubmit={createGender}><label>Organe<select name="body_id">{bodies.map(b=><option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}</select></label>'
+          new='<form className="pwForm" onSubmit={createGender}><label className="wide">Rechercher l’organe<input value={bodySearch} onChange={e=>setBodySearch(e.target.value)} placeholder="Code, organe, coordination régionale…"/></label><label>Organe<select name="body_id" required><option value="">Choisir un organe</option>{filteredBodies.map(b=><option key={b.id} value={b.id}>{b.code} · {b.name}</option>)}</select></label>'
+          if old not in s: raise SystemExit('gender body anchor missing')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+          PY
+      - name: Commit patch and remove temporary workflow
+        run: |
+          git rm .github/workflows/patch-my-position-body-search.yml
+          git config user.name "agenceaiacpff"
+          git config user.email "84762273+agenceaiacpff@users.noreply.github.com"
+          git add components/MyPositionWorkspaceV3.tsx
+          git commit -m "Make My Position body selectors global and searchable"
+          git push
