@@ -1,5 +1,4 @@
 "use client";
-// AIAC secure Office reader: DOCX and XLSX are rendered from the original physical file; production deploy retry after Vercel rate-limit.
 
 import DOMPurify from "dompurify";
 import Link from "next/link";
@@ -23,8 +22,10 @@ export default function SecureDocumentReader({documentId}:{documentId:string}){
 
  useEffect(()=>{void(async()=>{const{data:d,error}=await supabase.rpc('institutional_document_secure_preview',{target_document_id:documentId});if(error)setNotice(error.message);else setData(d as Payload);})();},[documentId,supabase]);
 
+ // Never fetch the physical Office original for a protected document merely to display it.
+ // Protected documents are rendered from the server-generated HTML preview only.
  useEffect(()=>{
-  if(!data)return;
+  if(!data||data.secure_view_only)return;
   const ext=extension(data.file_name||'');
   if(ext!=='docx'&&ext!=='xlsx'&&ext!=='xls')return;
   let cancelled=false;
@@ -59,7 +60,21 @@ export default function SecureDocumentReader({documentId}:{documentId:string}){
   return()=>{cancelled=true;};
  },[data,documentId]);
 
- useEffect(()=>{if(!data?.secure_view_only)return;const block=(e:Event)=>e.preventDefault();const key=(e:KeyboardEvent)=>{if((e.ctrlKey||e.metaKey)&&['p','s','c','u'].includes(e.key.toLowerCase())){e.preventDefault();e.stopPropagation();}};document.addEventListener('contextmenu',block);document.addEventListener('copy',block);document.addEventListener('dragstart',block);window.addEventListener('keydown',key,true);return()=>{document.removeEventListener('contextmenu',block);document.removeEventListener('copy',block);document.removeEventListener('dragstart',block);window.removeEventListener('keydown',key,true);};},[data?.secure_view_only]);
+ useEffect(()=>{
+  if(!data?.secure_view_only)return;
+  const block=(e:Event)=>{e.preventDefault();e.stopPropagation();};
+  const key=(e:KeyboardEvent)=>{
+    const k=e.key.toLowerCase();
+    if((e.ctrlKey||e.metaKey)&&['p','s','c','x','v','a','u'].includes(k)){e.preventDefault();e.stopPropagation();}
+  };
+  const events:Array<keyof DocumentEventMap>=['contextmenu','copy','cut','paste','dragstart','selectstart'];
+  events.forEach(name=>document.addEventListener(name,block,true));
+  window.addEventListener('keydown',key,true);
+  return()=>{
+    events.forEach(name=>document.removeEventListener(name,block,true));
+    window.removeEventListener('keydown',key,true);
+  };
+ },[data?.secure_view_only]);
 
  if(notice)return <main className="secureReader"><p>{notice}</p><Link href="/espace/poste?section=resources">Retour aux ressources</Link></main>;
  if(!data)return <main className="secureReader"><p>Chargement sécurisé…</p></main>;
@@ -69,18 +84,20 @@ export default function SecureDocumentReader({documentId}:{documentId:string}){
  const isExcel=ext==='xlsx'||ext==='xls';
  const safe=DOMPurify.sanitize(data.html_content||'');
  const active=sheets[activeSheet];
+ const protectedOffice=data.secure_view_only&&(isDocx||isExcel);
 
  return <main className={`secureReader ${data.secure_view_only?'protected':''}`}>
-  <style>{`body{margin:0;background:#eef2f7}.secureReader{max-width:1280px;margin:0 auto;padding:24px;font-family:Arial,sans-serif}.readerTop{position:sticky;top:0;z-index:20;background:#fff;border:1px solid #dbe2ea;border-radius:14px;padding:14px 18px;display:flex;gap:12px;justify-content:space-between;align-items:center;box-shadow:0 8px 25px #0001}.readerActions{display:flex;gap:8px;flex-wrap:wrap}.readerActions a,.readerActions button{padding:9px 12px;border-radius:9px;border:0;background:#123b6d;color:white;text-decoration:none;cursor:pointer}.paper{position:relative;margin-top:18px;background:#fff;border:1px solid #dce3ea;padding:28px;min-height:70vh;box-shadow:0 8px 30px #0001;overflow:auto}.paper table{border-collapse:collapse;width:100%;margin:12px 0}.paper td,.paper th{border:1px solid #bbb;padding:6px;vertical-align:top}.paper pre{white-space:pre-wrap;font-family:inherit}.protected .paper{user-select:none;-webkit-user-select:none}.watermarks{pointer-events:none;position:absolute;inset:0;overflow:hidden;z-index:10}.watermarks span{position:absolute;transform:rotate(-28deg);font-size:24px;font-weight:700;color:rgba(120,0,0,.08);white-space:nowrap}.content{position:relative;z-index:5}.docxHost{overflow:auto;background:#e9edf2;padding:18px;min-height:65vh}.docxHost .docx-wrapper{background:transparent!important;padding:0!important}.docxHost section.aiacDocx{margin:0 auto 22px!important;box-shadow:0 2px 12px #0002!important}.sheetTabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}.sheetTabs button{border:1px solid #c9d3df;background:#f6f8fb;color:#173b63;padding:8px 10px;border-radius:8px;cursor:pointer}.sheetTabs button.active{background:#173b63;color:#fff}.xlsxViewport{overflow:auto;max-height:72vh;border:1px solid #dbe2ea;background:#fff}.xlsxViewport table{width:auto;min-width:100%;border-collapse:collapse;font-size:13px}.xlsxViewport td,.xlsxViewport th{white-space:nowrap;border:1px solid #cfd6df;padding:5px 8px;min-width:80px}.officeStatus{padding:18px;text-align:center;color:#42566e}.officeError{padding:12px;border:1px solid #e0aaaa;background:#fff5f5;color:#8f1f1f;border-radius:10px}@media print{body>*{display:none!important}}`}</style>
+  <style>{`html,body{margin:0;background:#eef2f7;color:#172033}.secureReader{max-width:1280px;margin:0 auto;padding:24px;font-family:Arial,sans-serif;color:#172033}.secureReader *{box-sizing:border-box}.readerTop{position:sticky;top:0;z-index:20;background:#fff;color:#172033;border:1px solid #dbe2ea;border-radius:14px;padding:14px 18px;display:flex;gap:12px;justify-content:space-between;align-items:center;box-shadow:0 8px 25px #0001}.readerTop small{color:#526274}.readerActions{display:flex;gap:8px;flex-wrap:wrap}.readerActions a,.readerActions button{padding:9px 12px;border-radius:9px;border:0;background:#123b6d;color:white;text-decoration:none;cursor:pointer}.paper{position:relative;margin-top:18px;background:#fff;color:#172033;border:1px solid #dce3ea;padding:28px;min-height:70vh;box-shadow:0 8px 30px #0001;overflow:auto}.paper table{border-collapse:collapse;width:100%;margin:12px 0;color:#172033}.paper td,.paper th{border:1px solid #bbb;padding:6px;vertical-align:top;color:#172033}.paper pre{white-space:pre-wrap;font-family:inherit}.protected .paper,.protected .content{user-select:none!important;-webkit-user-select:none!important;-webkit-touch-callout:none!important}.watermarks{pointer-events:none;position:absolute;inset:0;overflow:hidden;z-index:10}.watermarks span{position:absolute;transform:rotate(-28deg);font-size:24px;font-weight:700;color:rgba(120,0,0,.08);white-space:nowrap}.content{position:relative;z-index:5}.protectedPreview{position:relative;color:#172033}.protectedPreview img{max-width:100%;height:auto}.protectedPreview table{display:table;max-width:100%}.docxHost{overflow:auto;background:#e9edf2;padding:18px;min-height:65vh}.docxHost .docx-wrapper{background:transparent!important;padding:0!important}.docxHost section.aiacDocx{margin:0 auto 22px!important;box-shadow:0 2px 12px #0002!important}.sheetTabs{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}.sheetTabs button{border:1px solid #c9d3df;background:#f6f8fb;color:#173b63;padding:8px 10px;border-radius:8px;cursor:pointer}.sheetTabs button.active{background:#173b63;color:#fff}.xlsxViewport{overflow:auto;max-height:72vh;border:1px solid #dbe2ea;background:#fff;color:#172033}.xlsxViewport table{width:auto;min-width:100%;border-collapse:collapse;font-size:13px}.xlsxViewport td,.xlsxViewport th{white-space:nowrap;border:1px solid #cfd6df;padding:5px 8px;min-width:80px;color:#172033}.officeStatus{padding:18px;text-align:center;color:#42566e}.officeError{padding:12px;border:1px solid #e0aaaa;background:#fff5f5;color:#8f1f1f;border-radius:10px}@media print{html,body,.secureReader{display:none!important;visibility:hidden!important}.protected *{display:none!important}}`}</style>
   <header className="readerTop"><div><b>{data.title}</b><div><small>{data.file_name} · {data.classification}{data.secure_view_only?' · consultation protégée':''}</small></div></div><div className="readerActions"><Link href="/espace/poste?section=resources">Retour</Link>{data.can_download&&<button onClick={()=>window.open(`/api/documents/${documentId}/download`,'_blank','noopener,noreferrer')}>Télécharger l’original</button>}</div></header>
   <section className="paper">
    {data.secure_view_only&&<div className="watermarks" aria-hidden="true">{Array.from({length:24},(_,i)=><span key={i} style={{left:`${(i%4)*27-10}%`,top:`${Math.floor(i/4)*18+4}%`}}>AIAC · {data.viewer_name} · consultation tracée</span>)}</div>}
    <div className="content">
-    {isDocx&&<><div ref={docxHost} className="docxHost"/>{officeLoading&&<p className="officeStatus">Rendu fidèle du document Word…</p>}{officeError&&<p className="officeError">{officeError}</p>}</>}
-    {isExcel&&<>{officeLoading&&<p className="officeStatus">Ouverture du classeur Excel…</p>}{officeError&&<p className="officeError">{officeError}</p>}{sheets.length>0&&<><div className="sheetTabs">{sheets.map((s,i)=><button key={s.name} className={i===activeSheet?'active':''} onClick={()=>setActiveSheet(i)}>{s.name}</button>)}</div><div className="xlsxViewport" dangerouslySetInnerHTML={{__html:DOMPurify.sanitize(active?.html||'')}}/></>}</>}
-    {!isDocx&&!isExcel&&(safe?<div dangerouslySetInnerHTML={{__html:safe}}/>:<iframe title={data.title} src={`/api/documents/${documentId}/view`} style={{width:'100%',height:'75vh',border:0}}/>)}
+    {protectedOffice&&(safe?<div className="protectedPreview" dangerouslySetInnerHTML={{__html:safe}}/>:<p className="officeError">Aucun aperçu sécurisé n’est disponible pour ce document. L’original n’est pas exposé en consultation protégée.</p>)}
+    {!data.secure_view_only&&isDocx&&<><div ref={docxHost} className="docxHost"/>{officeLoading&&<p className="officeStatus">Rendu fidèle du document Word…</p>}{officeError&&<p className="officeError">{officeError}</p>}</>}
+    {!data.secure_view_only&&isExcel&&<>{officeLoading&&<p className="officeStatus">Ouverture du classeur Excel…</p>}{officeError&&<p className="officeError">{officeError}</p>}{sheets.length>0&&<><div className="sheetTabs">{sheets.map((s,i)=><button key={s.name} className={i===activeSheet?'active':''} onClick={()=>setActiveSheet(i)}>{s.name}</button>)}</div><div className="xlsxViewport" dangerouslySetInnerHTML={{__html:DOMPurify.sanitize(active?.html||'')}}/></>}</>}
+    {!isDocx&&!isExcel&&(safe?<div className={data.secure_view_only?'protectedPreview':''} dangerouslySetInnerHTML={{__html:safe}}/>:(data.secure_view_only?<p className="officeError">Aucun aperçu sécurisé n’est disponible pour ce document.</p>:<iframe title={data.title} src={`/api/documents/${documentId}/view`} style={{width:'100%',height:'75vh',border:0}}/>))}
    </div>
   </section>
-  {data.secure_view_only&&<p><small>Mesures de dissuasion actives : filigrane nominatif, copie/impression/enregistrement navigateur neutralisés et consultation journalisée. Un appareil externe ou une capture au niveau du système d’exploitation ne peut pas être techniquement empêchée de façon absolue par une application web.</small></p>}
+  {data.secure_view_only&&<p><small>Consultation protégée et journalisée : filigrane nominatif, sélection, copie, couper/coller, clic droit, glisser-déposer, raccourcis d’impression et d’enregistrement neutralisés. Une application web ne peut pas empêcher de façon absolue une photographie externe ou une capture effectuée au niveau du système d’exploitation.</small></p>}
  </main>;
 }
