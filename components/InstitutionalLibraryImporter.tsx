@@ -9,7 +9,14 @@ const mime:Record<string,string>={pdf:"application/pdf",docx:"application/vnd.op
 const technicalPackageFiles=new Set(["MANIFEST_COFFRE_24.json","LISEZ_MOI_IMPORT_COFFRE_24.txt"]);
 function baseName(path:string){return path.split('/').filter(Boolean).pop()||path;}
 function safeName(name:string){return name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'-');}
-function typeFor(name:string,provided=''){return provided||mime[name.split('.').pop()?.toLowerCase()||'']||'application/octet-stream';}
+function typeFor(name:string,provided=''){
+ const inferred=mime[name.split('.').pop()?.toLowerCase()||''];
+ const supplied=provided.trim().toLowerCase();
+ if(inferred)return inferred;
+ if(supplied&&supplied!=='application/octet-stream')return provided;
+ return 'application/octet-stream';
+}
+function typedBlob(blob:Blob,type:string){return blob.type===type?blob:new Blob([blob],{type});}
 function errText(err:unknown){if(err&&typeof err==='object'&&'message' in err)return String((err as {message?:unknown}).message||'Erreur inconnue');return String(err||'Erreur inconnue');}
 async function sha(blob:Blob){const b=await blob.arrayBuffer();return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',b))).map(x=>x.toString(16).padStart(2,'0')).join('');}
 
@@ -35,13 +42,17 @@ export default function InstitutionalLibraryImporter({onDone}:{onDone?:()=>void}
       if(entry.dir||entry.name.includes('__MACOSX/')||baseName(entry.name).startsWith('.'))continue;
       const name=baseName(entry.name);
       if(technicalPackageFiles.has(name))continue;
-      const blob=await entry.async('blob');
-      if(!blob.size)continue;
-      out.push({name,blob,type:typeFor(name),size:blob.size});
+      const type=typeFor(name);
+      const raw=await entry.async('blob');
+      if(!raw.size)continue;
+      const blob=typedBlob(raw,type);
+      out.push({name,blob,type,size:blob.size});
      }
     }catch{setNotice(`ZIP illisible : ${f.name}`);}
    }else if(!technicalPackageFiles.has(f.name)){
-    out.push({name:f.name,blob:f,type:typeFor(f.name,f.type),size:f.size});
+    const type=typeFor(f.name,f.type);
+    const blob=typedBlob(f,type);
+    out.push({name:f.name,blob,type,size:f.size});
    }
   }
   const seen=new Set<string>();
@@ -72,7 +83,8 @@ export default function InstitutionalLibraryImporter({onDone}:{onDone?:()=>void}
    try{
     if(item.type==='application/octet-stream')throw new Error(`Type de fichier non reconnu : ${item.name}`);
     const digest=await sha(item.blob);
-    const up=await supabase.storage.from('aiac-documents').upload(path,item.blob,{contentType:item.type,upsert:false});
+    const uploadBody=typedBlob(item.blob,item.type);
+    const up=await supabase.storage.from('aiac-documents').upload(path,uploadBody,{contentType:item.type,upsert:false});
     if(up.error)throw up.error;
     uploaded=true;
 
