@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import type { ComponentType } from "react";
 import ReportSignatureCenter from "./ReportSignatureCenter";
+import ReportCollaborationHub from "./ReportCollaborationHub";
 
 const FieldReportingPanelHeavy = dynamic(() => import("./FieldReportingPanelHeavy"), {
   loading: () => <div className="portalPanel"><p>Chargement du dossier de reporting…</p></div>,
@@ -11,6 +12,7 @@ const FieldReportingPanelHeavy = dynamic(() => import("./FieldReportingPanelHeav
 export default function FieldReportingPanel(props: any) {
   return (
     <>
+      <ReportCollaborationHub />
       {props?.profile ? <ReportSignatureCenter profile={props.profile} /> : null}
       <style>{`
         /* Les anciens formulaires signaient sans mémoriser le choix des cachets.
