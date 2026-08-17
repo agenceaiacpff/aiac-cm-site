@@ -1,0 +1,54 @@
+name: Finalize My Position document workflows
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/finalize-my-position-doc-workflows.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Add ZIP dependency
+        run: npm install jszip@^3.10.1 --save
+      - name: Patch HR, meetings and vault
+        shell: python
+        run: |
+          from pathlib import Path
+          # HR table names -> modal from staffing table as well
+          p=Path('components/HrPersonnelExplorer.tsx'); s=p.read_text()
+          anchor=' useEffect(()=>{void load();},[]);'
+          add=''' useEffect(()=>{void load();},[]);\n useEffect(()=>{const open=(event:Event)=>{const id=(event as CustomEvent<string>).detail;if(id)void openCv(id);};window.addEventListener("aiac-open-hr-profile",open as EventListener);return()=>window.removeEventListener("aiac-open-hr-profile",open as EventListener);},[]);'''
+          if anchor not in s: raise SystemExit('HR anchor missing')
+          s=s.replace(anchor,add,1);p.write_text(s)
+
+          # Existing vault expects JSON URL; new secured endpoint directly streams/redirects.
+          p=Path('components/DocumentVaultHeavy.tsx'); s=p.read_text()
+          old='async function download(documentId:string){const response=await fetch(`/api/documents/${documentId}/download`,{cache:"no-store"});const data=await response.json();if(!response.ok)return fail(data.error||"Accès refusé");window.open(data.url,"_blank","noopener,noreferrer");}'
+          new='function download(documentId:string){window.open(`/api/documents/${documentId}/download`,"_blank","noopener,noreferrer");}'
+          if old not in s: raise SystemExit('Vault download anchor missing')
+          s=s.replace(old,new,1);p.write_text(s)
+
+          # All meeting dossiers get multi-document sharing, not only newly-created meetings in Mon poste.
+          p=Path('components/MeetingsPanelV2.tsx'); s=p.read_text()
+          imp='import styles from "./MeetingsPanelV2.module.css";'
+          if imp not in s: raise SystemExit('Meeting import anchor missing')
+          s=s.replace(imp,'import styles from "./MeetingsPanelV2.module.css";\nimport MeetingDocumentsPanel from "@/components/MeetingDocumentsPanel";',1)
+          anchor='{manager&&[\'in_progress\',\'completed\'].includes(m.status)&&<form className={`${styles.inlineForm} ${styles.closeout}`}'
+          if anchor not in s: raise SystemExit('Meeting closeout anchor missing')
+          s=s.replace(anchor,'<MeetingDocumentsPanel meetingId={m.id} profileId={profile.id} canManage={manager}/>'+anchor,1)
+          p.write_text(s)
+      - name: Validate TypeScript
+        run: npx tsc --noEmit --pretty false
+      - name: Commit final fixes
+        run: |
+          rm .github/workflows/finalize-my-position-doc-workflows.yml
+          git config user.name "agenceaiacpff"
+          git config user.email "84762273+agenceaiacpff@users.noreply.github.com"
+          git add package.json package-lock.json components/HrPersonnelExplorer.tsx components/MeetingsPanelV2.tsx components/DocumentVaultHeavy.tsx .github/workflows/finalize-my-position-doc-workflows.yml
+          git commit -m "Finalize meeting documents HR profile links and secure vault downloads"
+          git push
