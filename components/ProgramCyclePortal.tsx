@@ -38,7 +38,7 @@ import styles from "./ProgramCyclePortal.module.css";
 const links = [
   ["accueil", "Tableau de bord"], ["reunions", "Réunions et agenda"], ["demandes", "Mes demandes"],
   ["messages", "Messagerie"], ["notifications", "Notifications"], ["annonces", "Annonces"],
-  ["profil", "Mon profil"], ["terrain", "Cycle des programmes"],
+  ["profil", "Mon profil"], ["poste", "Mon poste"], ["terrain", "Cycle des programmes"],
   ["operations", "Demandes et interventions"], ["institution", "Gouvernance et membres"],
   ["documents", "Documents sécurisés"], ["contenus", "Publications du site"],
   ["administration", "Comptes et accès"], ["data-control", "Contrôle des données"], ["audit", "Journal d’audit"],
@@ -81,7 +81,9 @@ export default function ProgramCyclePortal(props: Props) {
   }
 
   function openTab(id: string) {
-    router.push(id === "terrain" ? "/espace/terrain" : `/espace?tab=${encodeURIComponent(id)}`);
+    if (id === "terrain") router.push("/espace/terrain");
+    else if (id === "poste") router.push("/espace/poste");
+    else router.push(`/espace?tab=${encodeURIComponent(id)}`);
   }
 
   return (
