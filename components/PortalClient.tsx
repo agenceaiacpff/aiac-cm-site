@@ -1,11 +1,16 @@
 "use client";
 
 import PortalClientV2 from "@/components/PortalClientV2";
+import PortalNotificationRuntime from "@/components/PortalNotificationRuntime";
+import MeetingAgendaEnhancements from "@/components/MeetingAgendaEnhancements";
 
 export default function PortalClient(props: any) {
+  const profileId=String(props?.profile?.id||"");
   return (
     <>
       <PortalClientV2 {...props} />
+      {profileId&&<PortalNotificationRuntime profileId={profileId}/>} 
+      {profileId&&<MeetingAgendaEnhancements profileId={profileId}/>} 
       <a className="myPositionPortalButton" href="/espace/poste">Mon poste</a>
       <style jsx global>{`
         .myPositionPortalButton {
