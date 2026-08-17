@@ -1,0 +1,95 @@
+name: Patch My Position full expansion
+on:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/patch-my-position-full-expansion.yml']
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch My Position V3
+        shell: python
+        run: |
+          from pathlib import Path
+          import re
+          p=Path('components/MyPositionWorkspaceV3.tsx')
+          s=p.read_text()
+          s=s.replace('import { FormEvent, useEffect, useMemo, useState } from "react";','import { FormEvent, useEffect, useMemo, useRef, useState } from "react";')
+          marker='import PositionReferenceAdmin from "@/components/PositionReferenceAdmin";'
+          imports='''import PositionReferenceAdmin from "@/components/PositionReferenceAdmin";\nimport PositionResourcesPanel from "@/components/PositionResourcesPanel";\nimport HrPersonnelExplorer from "@/components/HrPersonnelExplorer";\nimport EducationPositionPanel from "@/components/EducationPositionPanel";\nimport MealPositionPanel from "@/components/MealPositionPanel";\nimport { MyPositionNotifications, MyPositionAudit } from "@/components/MyPositionQuickPanels";\nimport MeetingDocumentsPanel from "@/components/MeetingDocumentsPanel";\nimport GenderDocumentsPanel from "@/components/GenderDocumentsPanel";'''
+          if marker not in s: raise SystemExit('import marker missing')
+          s=s.replace(marker,imports)
+          s=s.replace('type Section="dashboard"|"missions"|"team"|"reports"|"meetings"|"resources"|"staffing"|"correspondence"|"gender"|"protection"|"education"|"meal";','type Section="dashboard"|"notifications"|"audit"|"missions"|"team"|"reports"|"meetings"|"resources"|"staffing"|"correspondence"|"gender"|"protection"|"education"|"meal";')
+          old='const [staffSearch,setStaffSearch]=useState("");[STAFF]'
+          state_line=' const [staffSearch,setStaffSearch]=useState(""),[staffStatus,setStaffStatus]=useState("all"),[directorySearch,setDirectorySearch]=useState(""),[selectedSlot,setSelectedSlot]=useState("");'
+          if state_line not in s: raise SystemExit('staff state missing')
+          s=s.replace(state_line,state_line+'\n const [selectedProfileId,setSelectedProfileId]=useState(""),[latestMeetingId,setLatestMeetingId]=useState("");\n const assignmentFormRef=useRef<HTMLDivElement|null>(null);')
+          s=s.replace('if(requested&&["dashboard","missions","team","reports","meetings","resources","staffing","correspondence","gender","protection","education","meal"].includes(requested))','if(requested&&["dashboard","notifications","audit","missions","team","reports","meetings","resources","staffing","correspondence","gender","protection","education","meal"].includes(requested))')
+          nav_old='const nav=useMemo(()=>[["dashboard","Vue d’ensemble",true],["missions","Missions & droits",true],["team","Équipe & hiérarchie",true],["reports","Rapports",true],["meetings","Réunions",caps.has("meeting.create_team")],["resources","Documents ressources",true],["staffing","Structure & affectations",caps.has("staffing.view")],["correspondence","Courrier & archives",caps.has("correspondence.manage")||caps.has("correspondence.orient")],["gender","Genre & inclusion",caps.has("gender.analysis.manage")],["protection","Protection & cas",caps.has("case.assigned.manage")||caps.has("case.supervise_sensitive")||caps.has("protection.manage")||caps.has("case.aggregate.read")],["education","Éducation",caps.has("education.manage")],["meal","SERA / MEAL",caps.has("meal.manage")]].filter(x=>x[2]) as Array<[Section,string,boolean]>,[caps]);'
+          nav_new='const nav=useMemo(()=>[["dashboard","Vue d’ensemble",true],["notifications","Notifications",true],["audit","Audit",isSuperAdmin],["missions","Missions & droits",true],["team","Équipe & hiérarchie",true],["reports","Rapports",true],["meetings","Réunions",caps.has("meeting.create_team")||isSuperAdmin],["resources","Documents ressources",true],["staffing","Structure & affectations",caps.has("staffing.view")||isSuperAdmin],["correspondence","Courrier & archives",caps.has("correspondence.manage")||caps.has("correspondence.orient")||isSuperAdmin],["gender","Genre & inclusion",caps.has("gender.analysis.manage")||isSuperAdmin],["protection","Protection & cas",caps.has("case.assigned.manage")||caps.has("case.supervise_sensitive")||caps.has("protection.manage")||caps.has("case.aggregate.read")||isSuperAdmin],["education","Éducation",caps.has("education.manage")||isSuperAdmin],["meal","SERA / MEAL",caps.has("meal.manage")||isSuperAdmin]].filter(x=>x[2]) as Array<[Section,string,boolean]>,[caps,isSuperAdmin]);'
+          if nav_old not in s: raise SystemExit('nav missing')
+          s=s.replace(nav_old,nav_new)
+          meet_old='async function createMeeting(e:FormEvent<HTMLFormElement>){e.preventDefault();const form=e.currentTarget,f=new FormData(form);await action(async()=>{const r=await supabase.rpc("create_my_team_meeting",{target_assignment_id:text(f.get("assignment_id")),target_title:text(f.get("title")),target_starts_at:new Date(text(f.get("starts_at"))).toISOString(),target_ends_at:new Date(text(f.get("ends_at"))).toISOString(),target_agenda:text(f.get("agenda"))||null,target_modality:text(f.get("modality"))||"online",target_venue:text(f.get("venue"))||null});err(r.error);form.reset();return r.data;},"Réunion créée. Les titulaires subordonnés concernés ont été invités et notifiés.");}'
+          meet_new='async function createMeeting(e:FormEvent<HTMLFormElement>){e.preventDefault();const form=e.currentTarget,f=new FormData(form);await action(async()=>{const r=await supabase.rpc("create_my_team_meeting",{target_assignment_id:text(f.get("assignment_id")),target_title:text(f.get("title")),target_starts_at:new Date(text(f.get("starts_at"))).toISOString(),target_ends_at:new Date(text(f.get("ends_at"))).toISOString(),target_agenda:text(f.get("agenda"))||null,target_modality:text(f.get("modality"))||"online",target_venue:text(f.get("venue"))||null});err(r.error);if(r.data?.id)setLatestMeetingId(r.data.id);form.reset();return r.data;},"Réunion créée. Vous pouvez maintenant y joindre plusieurs documents.");}'
+          if meet_old not in s: raise SystemExit('meeting function missing')
+          s=s.replace(meet_old,meet_new)
+          assign_old='async function assign(e:FormEvent<HTMLFormElement>){e.preventDefault();const form=e.currentTarget,f=new FormData(form);await action(async()=>{const r=await supabase.rpc("assign_profile_to_position_slot",{target_slot_id:text(f.get("slot_id")),target_profile_id:text(f.get("profile_id")),target_decision_reference:text(f.get("decision_reference")),target_start_date:text(f.get("start_date"))||today()});err(r.error);setSelectedSlot("");setDirectorySearch("");form.reset();return r.data;},"Affectation enregistrée. Le titulaire a été notifié et les privilèges du poste suivent la date d’effet.");}'
+          assign_new='async function assign(e:FormEvent<HTMLFormElement>){e.preventDefault();const form=e.currentTarget,f=new FormData(form);if(!selectedProfileId){setNotice("Choisissez une personne dans les résultats de recherche.");return;}await action(async()=>{const r=await supabase.rpc("assign_profile_to_position_slot_v2",{target_slot_id:text(f.get("slot_id")),target_profile_id:selectedProfileId,target_decision_reference:text(f.get("decision_reference")),target_start_date:text(f.get("start_date"))||today(),target_assignment_nature:text(f.get("assignment_nature"))||"regular",target_end_date:text(f.get("end_date"))||null,target_acting_reason:text(f.get("acting_reason"))||null,target_notes:text(f.get("assignment_notes"))||null});err(r.error);setSelectedSlot("");setSelectedProfileId("");setDirectorySearch("");form.reset();return r.data;},"Affectation enregistrée. Une même personne peut cumuler plusieurs postes distincts ; les intérims sont historisés dans son parcours.");}\n function selectSlotForAssignment(id:string){setSelectedSlot(id);setTimeout(()=>assignmentFormRef.current?.scrollIntoView({behavior:"smooth",block:"start"}),20);}'
+          if assign_old not in s: raise SystemExit('assign function missing')
+          s=s.replace(assign_old,assign_new)
+          header_old='<div className="pwButtons"><button className="secondary" onClick={()=>void refresh()} disabled={busy}>Actualiser</button><Link className="secondary" href="/espace?tab=notifications">Notifications</Link>{isSuperAdmin&&<Link className="secondary" href="/espace?tab=audit">Audit</Link>}<Link className="secondary" href="/espace">← Portail</Link><Link href="/espace/terrain">Cycle des programmes</Link></div>'
+          header_new='<div className="pwButtons"><button className="secondary" onClick={()=>void refresh()} disabled={busy}>Actualiser</button><Link className="secondary" href="/espace">← Portail</Link><Link href="/espace/terrain">Cycle des programmes</Link></div>'
+          if header_old not in s: raise SystemExit('header buttons missing')
+          s=s.replace(header_old,header_new)
+          dashboard_marker='  {section==="dashboard"&&<>'
+          if dashboard_marker not in s: raise SystemExit('dashboard marker missing')
+          s=s.replace(dashboard_marker,'  {section==="notifications"&&<MyPositionNotifications/>}\n  {section==="audit"&&isSuperAdmin&&<MyPositionAudit/>}\n\n'+dashboard_marker)
+          meeting_line=re.compile(r'  \{section==="meetings"&&<section className="portalPanel">.*?</section>\}',re.S)
+          m=meeting_line.search(s)
+          if not m: raise SystemExit('meeting jsx missing')
+          old=m.group(0)
+          new='''  {section==="meetings"&&<><section className="portalPanel"><h2>Organiser une réunion avec mon équipe</h2><p>Les titulaires des postes placés sous l’affectation choisie — hiérarchiquement ou techniquement — sont invités automatiquement et reçoivent une notification.</p><form className="pwForm" onSubmit={createMeeting}><label>Affectation<select name="assignment_id" required>{workspace.assignments.map(a=><option key={a.assignment_id} value={a.assignment_id}>{a.title} · {a.body_code}{a.project_code?` · ${a.project_code}`:""}</option>)}</select></label><label>Titre<input name="title" minLength={3} required/></label><label>Début<input name="starts_at" type="datetime-local" required/></label><label>Fin<input name="ends_at" type="datetime-local" required/></label><label>Modalité<select name="modality"><option value="online">En ligne (Jitsi)</option><option value="in_person">Présentiel</option><option value="hybrid">Hybride</option></select></label><label>Lieu<input name="venue"/></label><label className="wide">Ordre du jour<textarea name="agenda"/></label><button disabled={busy}>Créer et inviter</button></form>{latestMeetingId&&<MeetingDocumentsPanel meetingId={latestMeetingId} profileId={workspace.profile.id} canManage={true}/>}<Buttons><Link className="secondary" href="/espace?tab=reunions">Toutes mes réunions</Link></Buttons></section></>}'''
+          s=s[:m.start()]+new+s[m.end():]
+          resource_pattern=re.compile(r'  \{section==="resources"&&.*?\n\n  \{section==="staffing"',re.S)
+          m=resource_pattern.search(s)
+          if not m: raise SystemExit('resources block missing')
+          s=s[:m.start()]+'  {section==="resources"&&<PositionResourcesPanel/>}\n\n  {section==="staffing"'+s[m.end():]
+          s=s.replace('<th>Poste</th><th>Périmètre</th><th>Projet</th><th>Supérieur</th><th>État</th><th>Action</th>','<th>Poste</th><th>Périmètre</th><th>Projet</th><th>Titulaire(s)</th><th>Supérieur</th><th>État</th><th>Action</th>')
+          project_cell='<td>{s.project_code||"—"}<br/><small>{s.project_name||""}</small></td><td>{s.supervisor_slot_code||"—"}'
+          holder_cell='''<td>{s.project_code||"—"}<br/><small>{s.project_name||""}</small></td><td>{assignmentsCatalog.filter(a=>a.slot_id===s.slot_id&&a.assignment_status==="active").length?assignmentsCatalog.filter(a=>a.slot_id===s.slot_id&&a.assignment_status==="active").map(a=><button type="button" className="pwPersonLink" key={a.assignment_id} onClick={()=>window.dispatchEvent(new CustomEvent("aiac-open-hr-profile",{detail:a.profile_id}))}>{a.full_name||a.email||"Titulaire"}</button>):<span>—</span>}</td><td>{s.supervisor_slot_code||"—"}'''
+          if project_cell not in s: raise SystemExit('project cell missing')
+          s=s.replace(project_cell,holder_cell)
+          s=s.replace('<button onClick={()=>setSelectedSlot(s.slot_id)}>Affecter</button>','<button onClick={()=>selectSlotForAssignment(s.slot_id)}>Affecter</button>')
+          structure_end='</tbody></table></div></section>\n   {caps.has("staffing.assign")&&<div className="pwGrid">'
+          if structure_end not in s: raise SystemExit('structure end missing')
+          s=s.replace(structure_end,'</tbody></table></div></section>\n   <div id="hr-explorer"><HrPersonnelExplorer/></div>\n   {caps.has("staffing.assign")&&<div ref={assignmentFormRef} className="pwGrid">')
+          form_pattern=re.compile(r'<Card title="Affecter une personne"><form className="pwForm" onSubmit=\{assign\}>.*?</form></Card>',re.S)
+          m=form_pattern.search(s)
+          if not m: raise SystemExit('assignment form missing')
+          newform='''<Card title="Affecter une personne"><form className="pwForm" onSubmit={assign}><label className="wide">Poste<select name="slot_id" value={selectedSlot} onChange={e=>setSelectedSlot(e.target.value)} required><option value="">Choisir un poste disponible</option>{visibleSlots.filter(s=>!['filled','suspended','abolished'].includes(s.slot_status)).slice(0,500).map(s=><option key={s.slot_id} value={s.slot_id}>{s.slot_code} · {s.title} · {s.body_code}</option>)}</select></label><label className="wide">Rechercher la personne<input value={directorySearch} onChange={e=>{setDirectorySearch(e.target.value);setSelectedProfileId("")}} placeholder="Tapez le nom, l’e-mail, le téléphone ou un poste"/></label>{directorySearch.trim()&&<div className="wide pwSuggestions">{filteredDirectory.slice(0,30).length?filteredDirectory.slice(0,30).map(p=><button type="button" className={selectedProfileId===p.profile_id?"selected":""} key={p.profile_id} onClick={()=>{setSelectedProfileId(p.profile_id);setDirectorySearch(p.full_name||p.email||"")}}><b>{p.full_name||p.email}</b><small>{p.email?` · ${p.email}`:""}{(p.active_positions||[]).length?` · Déjà : ${(p.active_positions||[]).join(', ')}`:" · aucune affectation active"}</small></button>):<p>Aucun compte actif approuvé ne correspond.</p>}</div>}<input type="hidden" name="profile_id" value={selectedProfileId}/><label>Nature<select name="assignment_nature" defaultValue="regular"><option value="regular">Titulaire / affectation régulière</option><option value="interim">Intérim</option><option value="acting">Suppléance / faisant fonction</option><option value="volunteer">Bénévolat</option><option value="intern">Stage</option><option value="consultant">Consultance</option><option value="secondment">Mise à disposition</option></select></label><label>Prise d’effet<input name="start_date" type="date" defaultValue={today()}/></label><label>Fin prévue<input name="end_date" type="date"/></label><label className="wide">Motif d’intérim / suppléance<input name="acting_reason" placeholder="Obligatoire dans les faits pour expliquer l’intérim"/></label><label className="wide">Décision / nomination<input name="decision_reference" required/></label><label className="wide">Notes administratives<textarea name="assignment_notes"/></label><button disabled={busy||!selectedProfileId}>Enregistrer l’affectation</button></form></Card>'''
+          s=s[:m.start()]+newform+s[m.end():]
+          gender_form=re.compile(r'(<form className="pwForm pwDetail" onSubmit=\{e=>editGender\(e,g\)\}>.*?</form>)(</details>)',re.S)
+          m=gender_form.search(s)
+          if not m: raise SystemExit('gender edit form missing')
+          insertion=m.group(1)+'<GenderDocumentsPanel analysisId={g.id} profileId={workspace.profile.id} bodyId={g.body_id} projectId={g.project_id}/>'+m.group(2)
+          s=s[:m.start()]+insertion+s[m.end():]
+          edu_pattern=re.compile(r'  \{section==="education"&&.*?\n  \{section==="meal"&&.*?\n',re.S)
+          m=edu_pattern.search(s)
+          if not m: raise SystemExit('education meal blocks missing')
+          s=s[:m.start()]+'  {section==="education"&&<EducationPositionPanel/>}\n  {section==="meal"&&<MealPositionPanel/>}\n'+s[m.end():]
+          css_anchor='.pwNested .pwForm{padding:10px}.pw a{overflow-wrap:anywhere}'
+          css_extra='.pwNested .pwForm{padding:10px}.pwSuggestions{display:grid;gap:6px;max-height:320px;overflow:auto;border:1px solid #cbd8d1;border-radius:9px;padding:8px}.pwSuggestions button{display:flex;flex-direction:column;align-items:flex-start;text-align:left;background:#fff;color:#17251e;border:1px solid #d7e1dc;border-radius:8px;padding:9px}.pwSuggestions button.selected{border-color:#174f35;background:#e7f2ec}.pwSuggestions small{font-weight:400}.pwFilterGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:8px;margin:10px 0}.pwCheckList{display:grid;gap:5px;max-height:280px;overflow:auto;padding:8px}.pwCheckList label{display:flex;gap:7px;align-items:flex-start}.pwPersonLink{border:0!important;background:transparent!important;color:#174f35!important;padding:0!important;text-align:left;text-decoration:underline;display:block}.pwModal{position:fixed;inset:0;background:#0008;z-index:1000;padding:4vh 4vw;overflow:auto}.pwModalCard{max-width:1100px;margin:auto;background:#fff;border-radius:14px;padding:18px;box-shadow:0 20px 70px #0005}.pwCollabEditor{min-height:420px;border:1px solid #aebdb5;border-radius:9px;padding:22px;background:#fff;overflow:auto}.pw a{overflow-wrap:anywhere}'
+          if css_anchor not in s: raise SystemExit('css anchor missing')
+          s=s.replace(css_anchor,css_extra)
+          p.write_text(s)
+      - name: Commit patch and remove workflow
+        run: |
+          rm .github/workflows/patch-my-position-full-expansion.yml
+          git config user.name "agenceaiacpff"
+          git config user.email "84762273+agenceaiacpff@users.noreply.github.com"
+          git add components/MyPositionWorkspaceV3.tsx .github/workflows/patch-my-position-full-expansion.yml
+          git commit -m "Expand My Position staffing resources MEAL education and quick panels"
+          git push
