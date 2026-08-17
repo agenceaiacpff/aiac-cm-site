@@ -1,4 +1,5 @@
 "use client";
+// AIAC secure Office reader: DOCX and XLSX are rendered from the original physical file.
 
 import DOMPurify from "dompurify";
 import Link from "next/link";
