@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import OrangeSubmissionBanner from "./OrangeSubmissionBanner";
 import PayClient from "./PayClient";
 
 export const metadata: Metadata = {
@@ -7,5 +8,10 @@ export const metadata: Metadata = {
 };
 
 export default function AiacPayPage() {
-  return <PayClient />;
+  return (
+    <>
+      <OrangeSubmissionBanner />
+      <PayClient />
+    </>
+  );
 }
