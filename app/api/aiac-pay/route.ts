@@ -11,7 +11,7 @@ async function parseResponse(response: Response) {
   try {
     return text ? JSON.parse(text) : {};
   } catch {
-    return { error: "Réponse MTN illisible." };
+    return { error: "Réponse de la passerelle de paiement illisible." };
   }
 }
 
@@ -21,7 +21,7 @@ export async function GET() {
     const data = await parseResponse(response);
     return NextResponse.json(data, { status: response.ok ? 200 : 502 });
   } catch {
-    return NextResponse.json({ error: "Passerelle MTN indisponible." }, { status: 503 });
+    return NextResponse.json({ error: "Passerelle AIAC Pay indisponible." }, { status: 503 });
   }
 }
 
@@ -40,6 +40,6 @@ export async function POST(request: NextRequest) {
     const data = await parseResponse(response);
     return NextResponse.json(data, { status: response.status });
   } catch {
-    return NextResponse.json({ error: "Impossible de joindre MTN MoMo." }, { status: 503 });
+    return NextResponse.json({ error: "Impossible de joindre la passerelle de paiement." }, { status: 503 });
   }
 }
