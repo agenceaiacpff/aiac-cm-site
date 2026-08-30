@@ -67,6 +67,7 @@ export default function InstitutionalReportingHierarchyBridge() {
   useEffect(() => {
     const root = document.getElementById("centre-rapports");
     if (!root) return;
+    const reportRoot: HTMLElement = root;
 
     let disposed = false;
     let catalog: StructureRow[] = [];
@@ -74,7 +75,7 @@ export default function InstitutionalReportingHierarchyBridge() {
     let frame = 0;
     const selected = ["", "", "", ""];
 
-    const filterSelects = () => Array.from(root.querySelectorAll("select")).slice(0, 4) as HTMLSelectElement[];
+    const filterSelects = () => Array.from(reportRoot.querySelectorAll("select")).slice(0, 4) as HTMLSelectElement[];
     const initial = filterSelects();
     initial.forEach((select, index) => { selected[index] = select.value; });
 
@@ -113,7 +114,7 @@ export default function InstitutionalReportingHierarchyBridge() {
         const activityChoices = uniqueChoices(projectRows, "activity");
         appendScopedOptions(activitySelect, activityChoices, selected[3]);
       } finally {
-        observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["disabled"] });
+        observer.observe(reportRoot, { subtree: true, childList: true, attributes: true, attributeFilter: ["disabled"] });
       }
     }
 
@@ -128,8 +129,8 @@ export default function InstitutionalReportingHierarchyBridge() {
       window.setTimeout(scheduleApply, 0);
     }
 
-    root.addEventListener("change", handleChange, true);
-    observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["disabled"] });
+    reportRoot.addEventListener("change", handleChange, true);
+    observer.observe(reportRoot, { subtree: true, childList: true, attributes: true, attributeFilter: ["disabled"] });
 
     void (async () => {
       const { data, error } = await supabase.rpc("institutional_reporting_filter_catalog");
@@ -145,7 +146,7 @@ export default function InstitutionalReportingHierarchyBridge() {
 
     return () => {
       disposed = true;
-      root.removeEventListener("change", handleChange, true);
+      reportRoot.removeEventListener("change", handleChange, true);
       observer.disconnect();
       if (frame) window.cancelAnimationFrame(frame);
     };
