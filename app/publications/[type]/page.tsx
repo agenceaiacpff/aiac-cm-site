@@ -9,7 +9,7 @@ const pageSize=20;
 
 export default async function PublicListing({params,searchParams}:{params:Promise<{type:string}>;searchParams:Promise<{page?:string;organe?:string}>}){
   const {type}=await params;const filters=await searchParams;const page=Math.max(1,Number.parseInt(filters.page||"1",10)||1);const supabase=await createClient();
-  const {data:bodyData}=await supabase.from("governance_bodies").select("id,code,name,description,subsidiary_code,region,locality").eq("status","active").order("code");
+  const {data:bodyData}=await supabase.from("governance_bodies").select("id,code,name,description,subsidiary_code,region,locality").eq("status","active").in("body_type",["general_assembly","board","subsidiary_body"]).order("code");
   const bodies=(bodyData||[]) as PublicBody[];const selectedBody=filters.organe?bodies.find(body=>body.code===filters.organe||body.subsidiary_code===filters.organe):undefined;
 
   if(type==="livre-dor"){
