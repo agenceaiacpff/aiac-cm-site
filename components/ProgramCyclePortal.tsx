@@ -9,6 +9,7 @@ import ProgramCycleContextBridge from "@/components/ProgramCycleContextBridge";
 import CollectiveValidationPanel from "@/components/CollectiveValidationPanel";
 import HierarchicalValidationPanel from "@/components/HierarchicalValidationPanel";
 import InstitutionalReportsCenter from "@/components/InstitutionalReportsCenter";
+import InstitutionalReportingHierarchyBridge from "@/components/InstitutionalReportingHierarchyBridge";
 import UniversalTaskReporter from "@/components/UniversalTaskReporter";
 import ProgramCycleManagementConsole from "@/components/ProgramCycleManagementConsole";
 import ProgramCycleNotificationsSummary from "@/components/ProgramCycleNotificationsSummary";
@@ -111,6 +112,7 @@ export default function ProgramCyclePortal(props: Props) {
         <HierarchicalValidationPanel profile={props.profile as OperationProfile} signatureAssets={props.institutionalSignatureAssets} />
         <CollectiveValidationPanel profile={props.profile as OperationProfile} reports={props.initialTaskReports} approvals={props.initialApprovals} bodies={props.bodies} signatureAssets={props.institutionalSignatureAssets} />
         <InstitutionalReportsCenter />
+        <InstitutionalReportingHierarchyBridge />
         <div className={styles.legacyCycle}><HierarchicalProgramCycle {...props} profile={props.profile as OperationProfile} /></div>
       </main>
     </div>
