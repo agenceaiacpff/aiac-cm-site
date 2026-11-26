@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JULIENNE_PHOTO } from "./julienne-photo";
 
 export const metadata = {
   title: "Vérification du personnel AIAC",
@@ -59,7 +60,7 @@ export default function PersonnelPage() {
               <article key={p.matricule} style={{background:"#fff",border:"1px solid #dbe3ee",borderRadius:18,overflow:"hidden",boxShadow:"0 10px 30px rgba(25,45,70,.08)"}}>
                 <div style={{height:78,background:"linear-gradient(120deg,#0c3d78,#145da0)"}} />
                 <div style={{padding:"22px"}}>
-                  <div style={{width:74,height:74,borderRadius:"50%",background:"#e7eef7",display:"grid",placeItems:"center",color:"#0c3d78",fontWeight:900,fontSize:24,marginTop:-58,border:"5px solid #fff"}}>JM</div>
+                  <img src={JULIENNE_PHOTO} alt="MUNPEN MAPON JULIENNE" style={{width:74,height:74,borderRadius:"50%",objectFit:"cover",objectPosition:"center 35%",marginTop:-58,border:"5px solid #fff",boxShadow:"0 4px 14px rgba(0,0,0,.16)"}}/>
                   <h3 style={{margin:"12px 0 5px",fontSize:19}}>{p.nom}</h3>
                   <div style={{color:"#0c3d78",fontWeight:700,fontSize:14}}>{p.fonction}</div>
                   <div style={{color:"#67758c",fontSize:13,marginTop:8}}>Matricule : {p.matricule}<br/>{p.affectation}</div>
