@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JULIENNE_PHOTO } from "../julienne-photo";
 
 export const metadata = {
   title: "MB013 — MUNPEN MAPON JULIENNE | AIAC",
@@ -33,7 +34,7 @@ export default function MB013Page() {
           <div style={{fontSize:13,color:"#67758c",marginBottom:18}}><Link href="/personnel">Personnel AIAC</Link> › MB013 › Vérification</div>
           <div style={{display:"grid",gridTemplateColumns:"minmax(260px,330px) minmax(0,1fr)",gap:26,alignItems:"start"}}>
             <aside style={{background:"#fff",border:"1px solid #dbe3ee",borderRadius:22,padding:24,textAlign:"center",boxShadow:"0 18px 48px rgba(27,47,75,.12)"}}>
-              <div style={{width:185,height:220,margin:"0 auto",borderRadius:18,border:"1px solid #dbe3ee",background:"linear-gradient(180deg,#edf3fa,#dbe6f3)",display:"grid",placeItems:"center",fontSize:48,fontWeight:900,color:"#0c3d78"}}>JM</div>
+              <img src={JULIENNE_PHOTO} alt="MUNPEN MAPON JULIENNE" style={{width:185,height:220,margin:"0 auto",borderRadius:18,border:"1px solid #dbe3ee",objectFit:"cover",objectPosition:"center 35%",display:"block"}}/>
               <div style={{display:"inline-flex",alignItems:"center",gap:8,margin:"15px auto 8px",background:"#eaf8f0",color:"#0e7540",padding:"9px 13px",borderRadius:999,fontWeight:900,fontSize:13}}>● STATUT : ACTIF</div>
               <h2 style={{fontSize:22,margin:"10px 0 4px",color:"#0b376d"}}>MUNPEN MAPON JULIENNE</h2>
               <div style={{color:"#0c3d78",fontWeight:700,fontSize:15}}>Conseillère agropastorale</div>
